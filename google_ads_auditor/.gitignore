@@ -1,0 +1,48 @@
+# ============================================================
+# Google Ads Auditor - .gitignore
+# ============================================================
+
+# Credentials & secrets (NEVER commit these)
+config/config.local.yaml
+config/config.prod.yaml
+config/*.local.*
+config/*.prod.*
+.env
+.env.*
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Generated reports (may contain sensitive account data)
+reports/*.xlsx
+reports/*.pdf
+reports/*.json
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Logs
+*.log

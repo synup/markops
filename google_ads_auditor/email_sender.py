@@ -2,7 +2,7 @@
 Email Sender - Sends audit reports via Gmail SMTP with attachments.
 """
 
-import html
+import html as html_module
 import smtplib
 import os
 from email.mime.multipart import MIMEMultipart
@@ -97,8 +97,8 @@ def _build_html_body(results):
     for cf in critical_fails[:5]:
         critical_items += f"""
         <li style="margin-bottom: 8px;">
-            <b>{html.escape(str(cf['check_id']))}: {html.escape(str(cf['name']))}</b><br/>
-            <span style="color: #666;">{html.escape(str(cf['details']))}</span>
+            <b>{html_module.escape(str(cf['check_id']))}: {html_module.escape(str(cf['name']))}</b><br/>
+            <span style="color: #666;">{html_module.escape(str(cf['details']))}</span>
         </li>"""
 
     # Quick wins
@@ -106,7 +106,7 @@ def _build_html_body(results):
     for qw in results["quick_wins"][:5]:
         qw_items += f"""
         <li style="margin-bottom: 8px;">
-            <b>{html.escape(str(qw['check_id']))}: {html.escape(str(qw['name']))}</b> ({qw['fix_time_minutes']} min)
+            <b>{html_module.escape(str(qw['check_id']))}: {html_module.escape(str(qw['name']))}</b> ({qw['fix_time_minutes']} min)
         </li>"""
 
     html = f"""

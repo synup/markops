@@ -1,0 +1,55 @@
+# ============================================================
+# Google Ads Auditor - Configuration
+# ============================================================
+# SECURITY: Do NOT commit this file with real credentials.
+#
+# For local development:
+#   Copy this to config.local.yaml, fill in values, and run with:
+#     --config config/config.local.yaml
+#
+# For cloud deployment:
+#   Use environment variables instead (see CLOUD_DEPLOY_GUIDE.md).
+#   All values below can be overridden by env vars.
+# ============================================================
+
+google_ads:
+  # Override with env: GOOGLE_ADS_DEVELOPER_TOKEN
+  developer_token: ""
+  # Override with env: GOOGLE_ADS_CLIENT_ID
+  client_id: ""
+  # Override with env: GOOGLE_ADS_CLIENT_SECRET
+  client_secret: ""
+  # Override with env: GOOGLE_ADS_REFRESH_TOKEN
+  refresh_token: ""
+  # Override with env: GOOGLE_ADS_CUSTOMER_ID
+  customer_id: ""
+  # Override with env: GOOGLE_ADS_LOGIN_CUSTOMER_ID
+  login_customer_id: ""
+
+email:
+  # Override with env: GMAIL_SENDER_EMAIL
+  sender_email: ""
+  # Override with env: GMAIL_RECIPIENT_EMAIL
+  recipient_email: ""
+  # Override with env: GMAIL_APP_PASSWORD
+  gmail_app_password: ""
+
+# Audit settings (safe to commit - no secrets)
+audit:
+  lookback_days: 30
+  search_term_lookback_days: 30
+  min_impressions: 100
+  min_clicks_search_terms: 5
+  wasted_spend_threshold: 5.0
+  qs_warning: 5
+  qs_pass: 7
+  ctr_benchmark: 6.66
+  cvr_benchmark: 7.52
+  cpc_benchmark: 5.26
+
+# Report settings (safe to commit)
+report:
+  output_dir: "reports"
+  campaign_types:
+    - SEARCH
+    - PERFORMANCE_MAX

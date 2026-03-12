@@ -16,7 +16,7 @@ export async function GET(request: Request) {
           getAll() {
             return cookieStore.getAll()
           },
-          setAll(cookiesToSet) {
+          setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
             try {
               cookiesToSet.forEach(({ name, value, options }) =>
                 cookieStore.set(name, value, options)
@@ -31,16 +31,18 @@ export async function GET(request: Request) {
 
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
-    if (!error) {
-      // Verify @synup.com domain
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user?.email && !user.email.endsWith('@synup.com')) {
-        await supabase.auth.signOut()
-        return NextResponse.redirect(`${origin}/login?error=domain`)
-      }
-      return NextResponse.redirect(origin)
+    if (error) {
+      return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`)
     }
+
+    // Verify @synup.com domain
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user?.email && !user.email.endsWith('@synup.com')) {
+      await supabase.auth.signOut()
+      return NextResponse.redirect(`${origin}/login?error=domain`)
+    }
+    return NextResponse.redirect(origin)
   }
 
-  return NextResponse.redirect(`${origin}/login?error=auth`)
+  return NextResponse.redirect(`${origin}/login?error=no_code`)
 }

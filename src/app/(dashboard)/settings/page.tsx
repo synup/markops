@@ -47,7 +47,7 @@ export default function SettingsPage() {
   )
 }
 
-function ProfileCard({ profile }: { profile: { email?: string; full_name?: string; role?: string } | null }) {
+function ProfileCard({ profile }: { profile: { email?: string | null; full_name?: string | null; role?: string | null } | null }) {
   const roleColor = profile?.role === 'admin' ? '#7c3aed' : profile?.role === 'editor' ? '#3b82f6' : '#6b7280'
   return (
     <div className="rounded-lg p-5" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>

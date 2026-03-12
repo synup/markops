@@ -26,8 +26,10 @@ export function useLatestAudit() {
   return { audit, loading }
 }
 
+type AuditHistoryRow = Pick<AuditRun, 'id' | 'run_date' | 'score' | 'grade' | 'passed_checks' | 'failed_checks' | 'created_at'>
+
 export function useAuditHistory() {
-  const [audits, setAudits] = useState<AuditRun[]>([])
+  const [audits, setAudits] = useState<AuditHistoryRow[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
@@ -38,7 +40,7 @@ export function useAuditHistory() {
         .select('id, run_date, score, grade, passed_checks, failed_checks, created_at')
         .order('run_date', { ascending: false })
         .limit(52)
-      setAudits(data ?? [])
+      setAudits((data as AuditHistoryRow[]) ?? [])
       setLoading(false)
     }
     fetch()

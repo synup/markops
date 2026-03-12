@@ -59,7 +59,7 @@ export function useLatestCampaignSnapshot() {
           .select('snapshot_date')
           .order('snapshot_date', { ascending: false })
           .limit(1)
-          .single()
+          .maybeSingle()
 
         if (latest) {
           const { data } = await supabase
@@ -78,7 +78,7 @@ export function useLatestCampaignSnapshot() {
           .select('id, run_date, raw_report')
           .order('created_at', { ascending: false })
           .limit(1)
-          .single()
+          .maybeSingle()
 
         if (auditRun?.raw_report) {
           const report = auditRun.raw_report as Record<string, unknown>

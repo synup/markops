@@ -55,7 +55,7 @@ export function SearchTermRow({ term, onAddAsNegative }: SearchTermRowProps) {
         </div>
         <div className="flex items-center gap-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
           <span>{term.campaign}</span>
-          {term.categories?.length > 0 && (
+          {Array.isArray(term.categories) && term.categories.length > 0 && (
             <span style={{ color: 'var(--text-dim)' }}>· {term.categories.join(', ')}</span>
           )}
         </div>

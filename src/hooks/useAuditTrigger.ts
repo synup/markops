@@ -46,7 +46,7 @@ export function useAuditTrigger() {
         .in('status', ['pending', 'running'])
         .order('requested_at', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
       if (data) setCurrentRequest(data)
     }
     checkActive()

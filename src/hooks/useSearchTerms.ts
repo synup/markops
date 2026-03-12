@@ -64,7 +64,7 @@ export function useSearchTermSummary(auditRunId?: number) {
         .from('search_term_summaries')
         .select('*')
         .eq('audit_run_id', auditRunId)
-        .single()
+        .maybeSingle()
       setSummary(data)
       setLoading(false)
     }

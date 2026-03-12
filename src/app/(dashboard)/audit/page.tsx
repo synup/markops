@@ -88,7 +88,8 @@ function TabBar({ tabs, activeTab, onTabChange }: {
 }
 
 function IssuesPanel({ audit }: { audit: AuditRun }) {
-  const issues = [...audit.critical_issues, ...audit.quick_wins]
+  const parseArr = (val: unknown) => Array.isArray(val) ? val : typeof val === 'string' ? JSON.parse(val) : []
+  const issues = [...parseArr(audit.critical_issues), ...parseArr(audit.quick_wins)]
   if (!issues.length) return <p className="py-8 text-center text-sm" style={{ color: 'var(--text-dim)' }}>No issues.</p>
   return (
     <div className="flex flex-col gap-2">

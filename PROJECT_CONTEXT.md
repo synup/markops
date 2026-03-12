@@ -1,6 +1,6 @@
 # Marketing HQ — Project Context
 
-> Updated end of session 2026-03-12. This file is the single source of truth for continuing work on this project.
+> Updated end of session 2026-03-12 (evening). This file is the single source of truth for continuing work on this project.
 
 ## What This Is
 
@@ -10,7 +10,7 @@
 
 | Component | Tech | Location | Purpose |
 |-----------|------|----------|---------|
-| Dashboard | Next.js 15 + TypeScript + Tailwind | Vercel | UI for team (@synup.com only) |
+| Dashboard | Next.js 15 + TypeScript + Tailwind | Vercel (`marketing-hq-nine.vercel.app`) | UI for team (@synup.com only) |
 | Database | Supabase (PostgreSQL) | Supabase cloud | Stores audit results, campaign data, user profiles, schedules |
 | Auditor | Python (google-ads library) | DO droplet (167.71.229.75) | 74-check Google Ads audit engine |
 | Poller | poll_audit_requests.py (cron */5) | DO droplet | Polls for on-demand + scheduled audits every 5 min |
@@ -108,6 +108,15 @@ markops/
 - **URL**: `https://bgxgukkriymmtlzkkjkg.supabase.co`
 - **All 4 migrations have been run** (001, 002, 003, 004)
 - **Google OAuth configured** with @synup.com domain restriction
+- **Redirect URLs**: `https://marketing-hq-nine.vercel.app/api/auth/callback` and `http://localhost:3000/api/auth/callback`
+
+## Vercel Deployment
+
+- **Production URL**: `https://marketing-hq-nine.vercel.app`
+- **Project name**: `marketing-hq` (under Synup's projects)
+- **Connected to GitHub**: `synup/markops` repo (auto-deploys on push)
+- **Environment variables set**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (all environments)
+- **Note**: `SUPABASE_SERVICE_ROLE_KEY` is NOT on Vercel (not needed — only used on droplet)
 
 ## Droplet Setup
 
@@ -125,7 +134,7 @@ markops/
 ### Completed
 - Next.js project scaffolded with all core files
 - Supabase database with 12 tables (4 migrations run)
-- Google OAuth working (tested — login successful)
+- Google OAuth working (tested — login successful on both localhost and Vercel)
 - Dashboard pages: Home, Audit (5 tabs), Campaigns, Keywords, Settings
 - Data hooks: useAuth, useAuditData, useAuditTrigger, useAuditSchedule, useCampaigns, useSearchTerms, useUsers
 - Push-to-Supabase script with search terms support
@@ -138,33 +147,47 @@ markops/
 - Campaigns page with fallback to audit report data when campaign_metrics table is empty
 - Droplet: 1GB swap added, cron active, all scripts deployed
 - niladri@synup.com set as admin
+- **Vercel deployment live** at `marketing-hq-nine.vercel.app`
+- **TypeScript build errors fixed**: cookie types, audit history types, profile types
+- **Null safety fixes**: `.single()` → `.maybeSingle()` across all Supabase queries to prevent 406 errors on empty tables
+- **JSON parsing safety**: `categories`, `critical_issues`, `quick_wins` now handled whether stored as arrays or JSON strings
+- **Auth callback improved**: Shows specific error messages instead of generic `error=auth`
+- **Security audit passed**: No hardcoded secrets, .gitignore properly configured, all credentials via env vars
 
 ### Not Yet Done
-- [ ] Vercel deployment
 - [ ] Push-to-Ads feature (approve keyword → actually push to Google Ads API)
 - [ ] Live campaign metrics fetcher (daily cron on droplet to populate campaign_metrics table)
 - [ ] Changelog / commit overlay UI (from legacy HTML)
 - [ ] Clawbot API documentation
-- [ ] Score showing 0/100 in push output (health_score path may differ in live JSON vs dry-run)
+- [ ] Investigate why only 9 of 407 search terms were pushed to negative_keywords table
 
 ### Known Issues
-- `push_to_supabase.py` reported score as 0/100 even though audit scored 62.5 — the `health_score.score` path in the live JSON may differ from the dry-run format. Needs investigation.
-- Gmail App Password on droplet is only 10 chars (needs 16) — but email is no longer needed
-- `.DS_Store` committed to repo — should be cleaned
-- Legacy `Downloads/Adwords auditor/` path in repo should be restructured
 - `campaign_metrics` table not yet populated (campaigns page falls back to audit report data)
+- Gmail App Password on droplet is only 10 chars (needs 16) — but email is no longer needed
+- Legacy `Downloads/Adwords auditor/` path in repo should be restructured
 
 ## Key Credentials & Infra
 
 | What | Where |
 |------|-------|
 | GitHub repo | `github.com/synup/markops` |
+| Vercel deployment | `marketing-hq-nine.vercel.app` (project: marketing-hq) |
 | DO Droplet | `167.71.229.75` (Ubuntu 22.04, $6/mo, Bangalore) |
 | Droplet project dir | `/opt/google-ads-auditor` |
 | Google Ads OAuth | Desktop app credentials in droplet `.env` |
 | Google Ads Account | Synup USA - Agency (Customer ID in droplet `.env`) |
 | Supabase project | `https://bgxgukkriymmtlzkkjkg.supabase.co` (project: Adwords) |
-| Vercel deployment | Previous: `markops-h2j4qn70y-synups-projects.vercel.app` (needs redeploy) |
+
+## Session-Specific Fixes Applied (2026-03-12 evening)
+
+These are the fixes applied during the Vercel deployment session:
+
+1. **TypeScript cookie types** — Added explicit `cookiesToSet` parameter types in `middleware.ts`, `server.ts`, and `api/auth/callback/route.ts`
+2. **AuditHistory type** — Created `AuditHistoryRow` pick type to match partial select in `useAuditHistory`
+3. **Profile card types** — Changed `string | undefined` to `string | null` in `ProfileCard` component
+4. **`.single()` → `.maybeSingle()`** — In `useAuditData`, `useAuditTrigger`, `useSearchTerms`, `useCampaigns` to prevent 406 errors when tables are empty
+5. **JSON array safety** — `AuditScoreHeader` and `IssuesPanel` now parse `categories`/`critical_issues`/`quick_wins` whether they come as arrays or JSON strings
+6. **Auth callback errors** — Now shows specific Supabase error messages and distinguishes `no_code` from exchange failures
 
 ## Rules for Future Sessions
 1. **Components < 150 lines** — split if exceeding
@@ -174,3 +197,5 @@ markops/
 5. **Return summaries** — not raw data from subagents
 6. **Keep droplet** — it runs the Python auditor + poller (not GitHub Actions)
 7. **Credentials in .env only** — never in config files or chat
+8. **Use `.maybeSingle()`** — never `.single()` for Supabase queries that might return 0 rows
+9. **Test locally before deploying** — run `npm run build` to catch TypeScript errors before `vercel --prod`

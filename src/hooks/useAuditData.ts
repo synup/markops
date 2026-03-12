@@ -16,7 +16,7 @@ export function useLatestAudit() {
         .select('*')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
       setAudit(data)
       setLoading(false)
     }

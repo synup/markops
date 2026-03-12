@@ -2,13 +2,16 @@
 
 import { ScoreGauge } from '@/components/ui/ScoreGauge'
 import { CategoryBar } from '@/components/ui/CategoryBar'
-import type { AuditRun } from '@/types'
+import type { AuditRun, AuditCategory } from '@/types'
 
 interface AuditScoreHeaderProps {
   audit: AuditRun
 }
 
 export function AuditScoreHeader({ audit }: AuditScoreHeaderProps) {
+  const cats = Array.isArray(audit.categories) ? audit.categories
+    : typeof audit.categories === 'string' ? JSON.parse(audit.categories) : []
+
   return (
     <div className="px-6 py-4">
       {/* Top row: score + date */}
@@ -25,7 +28,7 @@ export function AuditScoreHeader({ audit }: AuditScoreHeaderProps) {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs" style={{ color: 'var(--text-dim)' }}>
-            {audit.passed_checks}/{audit.total_checks} checks passed
+            {audit.passed_checks ?? 0}/{audit.total_checks ?? 0} checks passed
           </span>
         </div>
       </div>
@@ -34,7 +37,7 @@ export function AuditScoreHeader({ audit }: AuditScoreHeaderProps) {
       <div className="flex gap-6">
         <ScoreGauge score={audit.score} grade={audit.grade} size="lg" />
         <div className="grid flex-1 grid-cols-3 gap-3">
-          {audit.categories.map(cat => (
+          {cats.map((cat: AuditCategory) => (
             <CategoryBar key={cat.name} category={cat} />
           ))}
         </div>

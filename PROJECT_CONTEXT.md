@@ -54,6 +54,7 @@ markops/
 │   │   ├── poll_audit_requests.py           ← Polls for on-demand + scheduled audits
 │   │   └── run_weekly_audit.sh              ← Legacy cron runner (replaced by scheduler)
 │   ├── MARKETING_HQ_USER_GUIDE.docx  ← End-user guide (9 sections: Getting Started, Dashboard, Audits, Keywords, Campaigns, API/Clawbot, Settings, Troubleshooting)
+│   ├── MARKETING_HQ_ROADMAP.docx     ← Product roadmap + contributor best practices + AI assistant instructions (12 pages)
 │   ├── CLAWBOT_API.md                ← REST API docs for CEO bot / Clawbot integration
 │   └── SETUP_GUIDE.md
 │
@@ -240,6 +241,7 @@ markops/
 7. Full audit re-run: 402 negatives + 409 search terms pushed (audit_run_id=10)
 8. Campaign metrics backfilled: 44 records across 30 days
 9. Created `MARKETING_HQ_USER_GUIDE.docx` — professional user guide with API key generation + Clawbot setup instructions
+10. Created `MARKETING_HQ_ROADMAP.docx` — 12-page roadmap with 3 phases (Analytics Foundation, Content & Lead Funnel, Automation & Workflows), contributor best practices, new feature checklist, data source pattern, database migration guide, droplet deployment guide, and AI assistant instructions
 
 ## Rules for Future Sessions
 1. **Components < 150 lines** — split if exceeding
@@ -251,3 +253,6 @@ markops/
 7. **Credentials in .env only** — never in config files or chat
 8. **Use `.maybeSingle()`** — never `.single()` for Supabase queries that might return 0 rows
 9. **Test locally before deploying** — run `npm run build` (or `npx tsc --noEmit`) to catch TypeScript errors before deploying
+10. **Read the roadmap** — new contributors and AI assistants should read `MARKETING_HQ_ROADMAP.docx` before building new features
+11. **Feature branches only** — never commit directly to main; create `feature/your-feature-name` and merge via PR
+12. **Follow the 4-layer pattern** — new data sources = new table + new fetcher + new hook + new page (see roadmap Section 2.4)

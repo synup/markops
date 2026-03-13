@@ -67,9 +67,14 @@ export function useNegativeKeywords(auditRunId?: number) {
   }, [auditRunId])
 
   const updateStatus = async (id: number, status: NegativeKeyword['status']) => {
+    const { data: { user } } = await supabase.auth.getUser()
     const { error } = await supabase
       .from('negative_keywords')
-      .update({ status })
+      .update({
+        status,
+        decided_by: user?.id ?? null,
+        decided_at: new Date().toISOString(),
+      })
       .eq('id', id)
     if (!error) {
       setKeywords(prev => prev.map(k => k.id === id ? { ...k, status } : k))

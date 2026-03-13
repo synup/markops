@@ -15,31 +15,56 @@ interface SearchTermRowProps {
     suggested_match_type: string | null
     term_type: string
   }
-  onAddAsNegative?: (termId: number, term: string, campaign: string) => void
+  selected: boolean
+  alreadyAdded: boolean
+  onToggleSelect: () => void
 }
 
 function typeColor(type: string): string {
-  if (type === 'negative_candidate') return 'var(--red)'
-  if (type === 'expansion_candidate') return 'var(--green)'
-  if (type === 'wasted_spend') return 'var(--orange)'
+  if (type === 'negative_candidate') return '#EF4444'
+  if (type === 'expansion_candidate') return '#22C55E'
+  if (type === 'wasted_spend') return '#F97316'
   return 'var(--text-dim)'
 }
 
 function typeLabel(type: string): string {
-  if (type === 'negative_candidate') return '− Negative'
+  if (type === 'negative_candidate') return '- Negative'
   if (type === 'expansion_candidate') return '+ Expand'
-  if (type === 'wasted_spend') return '⚠ Waste'
-  return '—'
+  if (type === 'wasted_spend') return '! Waste'
+  return '-'
 }
 
-export function SearchTermRow({ term, onAddAsNegative }: SearchTermRowProps) {
-  const showAddNeg = term.term_type === 'negative_candidate' || term.term_type === 'wasted_spend'
+export function SearchTermRow({ term, selected, alreadyAdded, onToggleSelect }: SearchTermRowProps) {
+  const isNegType = term.term_type === 'negative_candidate' || term.term_type === 'wasted_spend'
+  const selectable = isNegType && !alreadyAdded
 
   return (
     <div
-      className="flex items-center gap-3 rounded-lg px-4 py-2.5"
-      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+      className="flex items-center gap-3 rounded-lg px-4 py-2.5 transition-colors"
+      style={{
+        background: alreadyAdded ? 'rgba(34,197,94,0.05)' : selected ? 'rgba(239,68,68,0.08)' : 'var(--surface)',
+        border: alreadyAdded ? '1px solid rgba(34,197,94,0.2)' : selected ? '1px solid rgba(239,68,68,0.3)' : '1px solid var(--border)',
+        cursor: selectable ? 'pointer' : 'default',
+        opacity: alreadyAdded ? 0.6 : 1,
+      }}
+      onClick={selectable ? onToggleSelect : undefined}
     >
+      {/* Checkbox or added badge */}
+      {alreadyAdded ? (
+        <span className="shrink-0 rounded px-2 py-0.5 text-[10px] font-semibold"
+          style={{ background: 'rgba(34,197,94,0.15)', color: '#22C55E' }}>
+          Added
+        </span>
+      ) : isNegType ? (
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelect}
+          onClick={e => e.stopPropagation()}
+          className="h-4 w-4 shrink-0 accent-red-500"
+        />
+      ) : null}
+
       {/* Type badge */}
       <span
         className="w-[70px] shrink-0 rounded px-2 py-0.5 text-center text-[10px] font-semibold"
@@ -73,25 +98,21 @@ export function SearchTermRow({ term, onAddAsNegative }: SearchTermRowProps) {
         </div>
         <div className="w-14 text-center">
           <div style={{ color: 'var(--text-dim)' }}>Cost</div>
-          <div style={{ color: 'var(--red)' }}>${term.cost.toFixed(2)}</div>
+          <div style={{ color: '#EF4444' }}>${term.cost.toFixed(2)}</div>
         </div>
         <div className="w-12 text-center">
           <div style={{ color: 'var(--text-dim)' }}>Conv</div>
-          <div style={{ color: term.conversions > 0 ? 'var(--green)' : 'var(--text-dim)' }}>
+          <div style={{ color: term.conversions > 0 ? '#22C55E' : 'var(--text-dim)' }}>
             {term.conversions}
           </div>
         </div>
       </div>
 
-      {/* Add as negative button */}
-      {showAddNeg && onAddAsNegative && (
-        <button
-          onClick={() => onAddAsNegative(term.id, term.search_term, term.campaign)}
-          className="shrink-0 rounded px-3 py-1 text-[11px] font-medium transition-colors hover:opacity-80"
-          style={{ background: 'var(--red-muted)', color: 'var(--red)' }}
-        >
-          + Add Negative
-        </button>
+      {/* Match type hint */}
+      {isNegType && !alreadyAdded && term.suggested_match_type && (
+        <span className="shrink-0 text-[10px]" style={{ color: 'var(--text-dim)' }}>
+          {term.suggested_match_type}
+        </span>
       )}
     </div>
   )

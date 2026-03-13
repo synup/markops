@@ -5,10 +5,12 @@ import { useKeywordActions, type ActionLogEntry } from '@/hooks/useKeywordAction
 
 interface ActionLogRowProps {
   entry: ActionLogEntry
+  selected: boolean
+  onToggleSelect: () => void
   onUndone: () => void
 }
 
-export function ActionLogRow({ entry, onUndone }: ActionLogRowProps) {
+export function ActionLogRow({ entry, selected, onToggleSelect, onUndone }: ActionLogRowProps) {
   const { undoAction } = useKeywordActions()
   const [undoing, setUndoing] = useState(false)
 
@@ -28,9 +30,25 @@ export function ActionLogRow({ entry, onUndone }: ActionLogRowProps) {
 
   return (
     <div
-      className="flex items-center gap-3 rounded-lg px-4 py-2.5"
-      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+      className="flex items-center gap-3 rounded-lg px-4 py-2.5 transition-colors"
+      style={{
+        background: selected ? 'rgba(245,158,11,0.08)' : 'var(--surface)',
+        border: selected ? '1px solid rgba(245,158,11,0.3)' : '1px solid var(--border)',
+        cursor: canUndo ? 'pointer' : 'default',
+      }}
+      onClick={canUndo ? onToggleSelect : undefined}
     >
+      {/* Checkbox for undoable entries */}
+      {canUndo && (
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelect}
+          onClick={e => e.stopPropagation()}
+          className="h-4 w-4 shrink-0 accent-amber-500"
+        />
+      )}
+
       {/* Icon */}
       <span
         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold"
@@ -75,7 +93,7 @@ export function ActionLogRow({ entry, onUndone }: ActionLogRowProps) {
       {/* Undo button */}
       {canUndo && (
         <button
-          onClick={handleUndo}
+          onClick={e => { e.stopPropagation(); handleUndo() }}
           disabled={undoing}
           className="shrink-0 rounded px-2.5 py-1 text-[11px] font-medium transition-opacity disabled:opacity-50"
           style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}

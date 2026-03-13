@@ -218,8 +218,89 @@ def run_audit(request_id):
         })
 
 
+def check_push_requests():
+    """Check for pending push-to-ads requests."""
+    try:
+        rows = api_request(
+            'GET', 'push_requests',
+            '?status=eq.pending&order=created_at.asc&limit=1'
+        )
+        return rows[0] if rows else None
+    except Exception as e:
+        print("[{}] Error checking push requests: {}".format(now(), e))
+        return None
+
+
+def update_push_request(request_id, updates):
+    """Update a push request status."""
+    try:
+        api_request('PATCH', 'push_requests', '?id=eq.{}'.format(request_id), updates)
+    except Exception as e:
+        print("[{}] Error updating push request {}: {}".format(now(), request_id, e))
+
+
+def run_push_to_ads(request_id):
+    """Run the push-to-ads script."""
+    print("[{}] Starting push-to-ads for request {}".format(now(), request_id))
+    update_push_request(request_id, {'status': 'processing'})
+
+    try:
+        result = subprocess.run(
+            [VENV_PYTHON, '{}/push_negatives_to_ads.py'.format(PROJECT_DIR)],
+            cwd=PROJECT_DIR,
+            capture_output=True, text=True, timeout=300,
+        )
+
+        output = result.stdout or ''
+        # Parse pushed/failed counts from output
+        pushed = 0
+        failed = 0
+        for line in output.split('\n'):
+            if 'Done:' in line:
+                parts = line.split('Done:')[1].strip()
+                for part in parts.split(','):
+                    part = part.strip()
+                    if 'pushed' in part:
+                        pushed = int(part.split()[0])
+                    elif 'failed' in part:
+                        failed = int(part.split()[0])
+
+        if result.returncode != 0:
+            error = result.stderr[:500] if result.stderr else 'Unknown error'
+            print("[{}] Push failed: {}".format(now(), error))
+            update_push_request(request_id, {
+                'status': 'failed',
+                'pushed_count': pushed,
+                'failed_count': failed,
+                'error_log': error,
+                'completed_at': datetime.utcnow().isoformat(),
+            })
+            return
+
+        update_push_request(request_id, {
+            'status': 'completed',
+            'pushed_count': pushed,
+            'failed_count': failed,
+            'completed_at': datetime.utcnow().isoformat(),
+        })
+        print("[{}] Push completed: {} pushed, {} failed".format(now(), pushed, failed))
+
+    except subprocess.TimeoutExpired:
+        update_push_request(request_id, {
+            'status': 'failed',
+            'error_log': 'Push timed out after 5 minutes',
+            'completed_at': datetime.utcnow().isoformat(),
+        })
+    except Exception as e:
+        update_push_request(request_id, {
+            'status': 'failed',
+            'error_log': str(e)[:500],
+            'completed_at': datetime.utcnow().isoformat(),
+        })
+
+
 if __name__ == '__main__':
-    # First check on-demand requests
+    # First check on-demand audit requests
     pending = check_pending()
     if pending:
         run_audit(pending['id'])
@@ -230,3 +311,8 @@ if __name__ == '__main__':
         pending = check_pending()
         if pending:
             run_audit(pending['id'])
+
+    # Check push-to-ads requests (independent of audit)
+    push_req = check_push_requests()
+    if push_req:
+        run_push_to_ads(push_req['id'])

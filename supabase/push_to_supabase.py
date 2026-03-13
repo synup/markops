@@ -80,7 +80,7 @@ def push_audit(report_path: str) -> None:
 
     # --- 2. Negative keywords ---
     search_terms = report.get('search_terms', {})
-    neg_candidates = search_terms.get('negative_candidates', [])
+    neg_candidates = search_terms.get('negative_keyword_candidates', search_terms.get('negative_candidates', []))
     if neg_candidates:
         neg_rows = [{
             'audit_run_id': audit_run_id,
@@ -99,7 +99,7 @@ def push_audit(report_path: str) -> None:
         print(f"  Pushed {len(neg_rows)} negative keyword candidates")
 
     # --- 3. Keyword expansions ---
-    kw_candidates = search_terms.get('keyword_candidates', [])
+    kw_candidates = search_terms.get('keyword_expansion_candidates', search_terms.get('keyword_candidates', []))
     if kw_candidates:
         kw_rows = [{
             'audit_run_id': audit_run_id,

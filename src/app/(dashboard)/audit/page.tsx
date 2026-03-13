@@ -8,11 +8,12 @@ import { ExpansionPanel } from '@/components/features/audit/ExpansionPanel'
 import { PausePanel } from '@/components/features/audit/PausePanel'
 import { NegativeKeywordsList } from '@/components/features/keywords/NegativeKeywordsList'
 import { ActionLogPanel } from '@/components/features/audit/ActionLogPanel'
+import { ChangelogPanel } from '@/components/features/changelog/ChangelogPanel'
 import { useLatestAudit, useNegativeKeywords } from '@/hooks/useAuditData'
 import { useState } from 'react'
 import type { AuditRun } from '@/types'
 
-type Tab = 'search_terms' | 'negatives' | 'expansion' | 'pause' | 'issues' | 'activity'
+type Tab = 'search_terms' | 'negatives' | 'expansion' | 'pause' | 'issues' | 'activity' | 'changelog'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'search_terms', label: 'Search Terms' },
@@ -21,6 +22,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'pause', label: 'Keywords to Pause' },
   { key: 'issues', label: 'Audit Issues' },
   { key: 'activity', label: 'Activity Log' },
+  { key: 'changelog', label: 'Changelog' },
 ]
 
 export default function AuditPage() {
@@ -61,6 +63,7 @@ export default function AuditPage() {
         {activeTab === 'pause' && <PausePanel auditRunId={audit.id} />}
         {activeTab === 'issues' && <IssuesPanel audit={audit} />}
         {activeTab === 'activity' && <ActionLogPanel />}
+        {activeTab === 'changelog' && <ChangelogPanel />}
       </div>
     </>
   )

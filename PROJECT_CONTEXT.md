@@ -132,8 +132,9 @@ markops/
 
 - **IP**: `167.71.229.75` (Ubuntu 22.04, Bangalore)
 - **Project dir**: `/opt/google-ads-auditor`
-- **Deployed scripts**: `push_to_supabase.py`, `poll_audit_requests.py`
-- **Cron**: `*/5 * * * *` polls for on-demand + scheduled audits
+- **Deployed scripts**: `push_to_supabase.py`, `poll_audit_requests.py`, `push_negatives_to_ads.py`, `fetch_campaign_metrics.py`
+- **Cron**: `*/5 * * * *` polls for on-demand audits + scheduled audits + push-to-ads requests
+- **Cron (daily)**: `fetch_campaign_metrics.py --days 1` (needs to be added after deploying)
 - **Swap**: 1GB swap file added (droplet only has 1GB RAM)
 - **Env vars in `/opt/google-ads-auditor/.env`**: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_ADS_CUSTOMER_ID, GOOGLE_ADS_LOGIN_CUSTOMER_ID, plus Google Ads OAuth credentials
 - **Google Ads account**: Synup USA - Agency (185 campaigns, 36,896 keywords)
@@ -143,11 +144,11 @@ markops/
 
 ### Completed
 - Next.js project scaffolded with all core files
-- Supabase database with 12 tables (4 migrations run, migration 005 pending)
+- Supabase database with 14 tables (migrations 001-005 run, 006+007 pending)
 - Google OAuth working (tested — login successful on both localhost and Vercel)
-- Dashboard pages: Home, Audit (6 tabs), Campaigns, Keywords, Settings
-- Data hooks: useAuth, useAuditData, useAuditTrigger, useAuditSchedule, useCampaigns, useSearchTerms, useUsers, useKeywordActions
-- Push-to-Supabase script with search terms support
+- Dashboard pages: Home, Audit (8 tabs), Campaigns, Keywords, Settings
+- Data hooks: useAuth, useAuditData, useAuditTrigger, useAuditSchedule, useCampaigns, useSearchTerms, useUsers, useKeywordActions, usePushToAds, useChangelog
+- Push-to-Supabase script with search terms support (key mismatch fixed)
 - On-demand audit trigger (dashboard → audit_requests → droplet polls)
 - Scheduler UI (frequency/day/time/timezone picker on Settings page)
 - User management UI (admin-only, role promotion/demotion)
@@ -169,18 +170,21 @@ markops/
 - **Activity Log UI**: New tab in Audit page showing all actions with timestamps, user names, undo buttons
 - **Error feedback**: SearchTermsPanel shows error messages when inserts fail
 - **decided_at tracking**: `useAuditData.updateStatus` now records `decided_by` and `decided_at`
+- **9/407 bug fixed**: `push_to_supabase.py` was reading wrong JSON key (`negative_candidates` vs `negative_keyword_candidates`); also fixed for expansions; removed arbitrary caps (50/30)
+- **Push-to-Ads**: `push_negatives_to_ads.py` script pushes approved negative keywords to Google Ads via `CampaignCriterionService.mutate_campaign_criteria()`; dashboard has "Push to Ads" button using `push_requests` polling table
+- **Campaign metrics fetcher**: `fetch_campaign_metrics.py` fetches daily campaign snapshots from Google Ads API; supports backfill with `--days N`
+- **Changelog tab**: Shows push history and change details with status badges
+- **Clawbot API docs**: `CLAWBOT_API.md` documents all Supabase REST API endpoints for the CEO bot
 
 ### Not Yet Done
-- [ ] **Run migration 005** in Supabase SQL Editor (keyword_action_log table + decided_at column)
-- [ ] Push-to-Ads feature (approve keyword → actually push to Google Ads API)
-- [ ] Live campaign metrics fetcher (daily cron on droplet to populate campaign_metrics table)
-- [ ] Changelog / commit overlay UI (from legacy HTML)
-- [ ] Clawbot API documentation
-- [ ] Investigate why only 9 of 407 search terms were pushed to negative_keywords table
-- [ ] Deploy latest changes to Vercel (push to GitHub triggers auto-deploy)
+- [ ] **Run migrations 006+007** in Supabase SQL Editor (push_requests table + campaign_metrics unique constraint)
+- [ ] **Deploy new scripts to droplet**: `push_negatives_to_ads.py`, `fetch_campaign_metrics.py`, updated `poll_audit_requests.py`, updated `push_to_supabase.py`, updated `report_json.py`
+- [ ] **Add daily cron** for `fetch_campaign_metrics.py` on droplet (e.g., `0 2 * * *` at 2am)
+- [ ] **Re-run audit** to get full negative keyword data (now that the JSON key mismatch is fixed)
+- [ ] Deploy latest dashboard changes to Vercel (push to GitHub triggers auto-deploy)
 
 ### Known Issues
-- `campaign_metrics` table not yet populated (campaigns page falls back to audit report data)
+- `campaign_metrics` table not yet populated (needs daily cron + initial backfill with `--days 30`)
 - Gmail App Password on droplet is only 10 chars (needs 16) — but email is no longer needed
 - Legacy `Downloads/Adwords auditor/` path in repo should be restructured
 - Negative keywords are **campaign-level only** (no account-level shared lists in the current schema)

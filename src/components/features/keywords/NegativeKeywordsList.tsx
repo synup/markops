@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { NegativeKeywordRow } from './NegativeKeywordRow'
+import { PushToAdsButton } from './PushToAdsButton'
 import { useKeywordActions } from '@/hooks/useKeywordActions'
 import type { NegativeKeyword } from '@/types'
 
@@ -116,11 +117,15 @@ export function NegativeKeywordsList({ keywords, onUpdateStatus }: NegativeKeywo
 
         {candidates.length > 0 && (
           <button onClick={selectAllCandidates}
-            className="ml-auto rounded px-3 py-1.5 text-xs font-medium"
+            className="rounded px-3 py-1.5 text-xs font-medium"
             style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
             {candidates.every(k => selectedIds.has(k.id)) ? 'Deselect All' : `Select All (${candidates.length})`}
           </button>
         )}
+
+        <div className="ml-auto">
+          <PushToAdsButton />
+        </div>
       </div>
 
       {/* List */}

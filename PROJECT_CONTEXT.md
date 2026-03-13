@@ -1,6 +1,6 @@
 # Marketing HQ — Project Context
 
-> Updated end of session 2026-03-13. This file is the single source of truth for continuing work on this project.
+> Updated end of session 2026-03-13 (evening). This file is the single source of truth for continuing work on this project.
 
 ## What This Is
 
@@ -53,6 +53,8 @@ markops/
 │   │   ├── push_to_supabase.py              ← Pushes audit JSON → Supabase (6 sections)
 │   │   ├── poll_audit_requests.py           ← Polls for on-demand + scheduled audits
 │   │   └── run_weekly_audit.sh              ← Legacy cron runner (replaced by scheduler)
+│   ├── MARKETING_HQ_USER_GUIDE.docx  ← End-user guide (9 sections: Getting Started, Dashboard, Audits, Keywords, Campaigns, API/Clawbot, Settings, Troubleshooting)
+│   ├── CLAWBOT_API.md                ← REST API docs for CEO bot / Clawbot integration
 │   └── SETUP_GUIDE.md
 │
 ├── google_ads_auditor/        ← Python audit engine
@@ -175,6 +177,7 @@ markops/
 - **Campaign metrics fetcher**: `fetch_campaign_metrics.py` fetches daily campaign snapshots from Google Ads API; supports backfill with `--days N`
 - **Changelog tab**: Shows push history and change details with status badges
 - **Clawbot API docs**: `CLAWBOT_API.md` documents all Supabase REST API endpoints for the CEO bot
+- **User Guide**: `MARKETING_HQ_USER_GUIDE.docx` — 9-section guide covering sign-in, dashboard, audit workflow, keyword management, campaign metrics, API key generation, Clawbot integration, settings, and troubleshooting
 
 ### All Core Features Complete
 - Migrations 006+007 run in Supabase
@@ -236,6 +239,7 @@ markops/
 6. Both cron jobs now source `.env` before running
 7. Full audit re-run: 402 negatives + 409 search terms pushed (audit_run_id=10)
 8. Campaign metrics backfilled: 44 records across 30 days
+9. Created `MARKETING_HQ_USER_GUIDE.docx` — professional user guide with API key generation + Clawbot setup instructions
 
 ## Rules for Future Sessions
 1. **Components < 150 lines** — split if exceeding

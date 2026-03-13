@@ -80,7 +80,7 @@ markops/
 - **Font**: System fonts (-apple-system, Inter)
 - **Component rule**: No component > 150 lines. UI separated from logic via hooks.
 
-## Database Tables (13 total, 5 migrations)
+## Database Tables (15 total, 7 migrations)
 
 | Table | Purpose | Written By |
 |-------|---------|-----------|
@@ -89,20 +89,21 @@ markops/
 | `negative_keywords` | Candidate terms to block (status: candidate→approved/denied→pushed) | Droplet (service_role) + Dashboard users |
 | `keyword_expansions` | Candidate terms to add | Droplet (service_role) |
 | `keywords_to_pause` | Underperforming keywords | Droplet (service_role) |
-| `campaign_metrics` | Daily campaign snapshots (not yet populated) | Droplet (service_role) |
+| `campaign_metrics` | Daily campaign snapshots (backfilled 30 days, daily cron at 2am) | Droplet (service_role) |
 | `change_log` | History of pushed changes | Dashboard users |
 | `audit_requests` | On-demand audit triggers | Dashboard users → droplet processes |
 | `search_terms` | All search terms with type classification | Droplet (service_role) |
 | `search_term_summaries` | Per-run search term rollups | Droplet (service_role) |
 | `audit_schedules` | User-configured recurring audit schedules | Dashboard users → droplet checks |
 | `keyword_action_log` | Audit trail: who did what, when, with undo support | Dashboard users |
+| `push_requests` | Push-to-Ads requests (pending→processing→completed/failed) | Dashboard → Droplet |
 
 ## Approval Workflow
 
 1. **Search Terms tab**: User reviews search terms, multi-selects negative/wasted spend candidates → "Add to Negative Candidates" button inserts into `negative_keywords` with status `candidate`
 2. **Negative Keywords tab**: User reviews candidates, multi-selects → bulk "Approve All" or "Deny All" (or individual approve/deny)
 3. **Activity Log tab**: Shows all actions with timestamps, user info, and undo buttons. Actions: added_as_candidate, approved, denied, bulk_approved, bulk_denied, undone, pushed_to_ads
-4. **Push to Ads** (not yet built): Approved keywords get pushed to Google Ads API
+4. **Push to Ads**: Approved keywords get pushed to Google Ads API via `push_negatives_to_ads.py` (triggered from dashboard "Push to Ads" button → `push_requests` table → droplet polls and executes)
 
 ## User Roles & Access
 
@@ -115,8 +116,7 @@ markops/
 
 - **Project name**: Adwords
 - **URL**: `https://bgxgukkriymmtlzkkjkg.supabase.co`
-- **Migrations 001–004 have been run**
-- **Migration 005 needs to be run** (keyword_action_log table, decided_at column, insert policy)
+- **Migrations 001–007 have all been run**
 - **Google OAuth configured** with @synup.com domain restriction
 - **Redirect URLs**: `https://marketing-hq-nine.vercel.app/api/auth/callback` and `http://localhost:3000/api/auth/callback`
 
@@ -134,7 +134,7 @@ markops/
 - **Project dir**: `/opt/google-ads-auditor`
 - **Deployed scripts**: `push_to_supabase.py`, `poll_audit_requests.py`, `push_negatives_to_ads.py`, `fetch_campaign_metrics.py`
 - **Cron**: `*/5 * * * *` polls for on-demand audits + scheduled audits + push-to-ads requests
-- **Cron (daily)**: `fetch_campaign_metrics.py --days 1` (needs to be added after deploying)
+- **Cron (daily 2am)**: `fetch_campaign_metrics.py --days 1` (sources .env, logs to /var/log/campaign_metrics.log)
 - **Swap**: 1GB swap file added (droplet only has 1GB RAM)
 - **Env vars in `/opt/google-ads-auditor/.env`**: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_ADS_CUSTOMER_ID, GOOGLE_ADS_LOGIN_CUSTOMER_ID, plus Google Ads OAuth credentials
 - **Google Ads account**: Synup USA - Agency (185 campaigns, 36,896 keywords)
@@ -176,15 +176,19 @@ markops/
 - **Changelog tab**: Shows push history and change details with status badges
 - **Clawbot API docs**: `CLAWBOT_API.md` documents all Supabase REST API endpoints for the CEO bot
 
-### Not Yet Done
-- [ ] **Run migrations 006+007** in Supabase SQL Editor (push_requests table + campaign_metrics unique constraint)
-- [ ] **Deploy new scripts to droplet**: `push_negatives_to_ads.py`, `fetch_campaign_metrics.py`, updated `poll_audit_requests.py`, updated `push_to_supabase.py`, updated `report_json.py`
-- [ ] **Add daily cron** for `fetch_campaign_metrics.py` on droplet (e.g., `0 2 * * *` at 2am)
-- [ ] **Re-run audit** to get full negative keyword data (now that the JSON key mismatch is fixed)
-- [ ] Deploy latest dashboard changes to Vercel (push to GitHub triggers auto-deploy)
+### All Core Features Complete
+- Migrations 006+007 run in Supabase
+- All scripts deployed to droplet (push_negatives_to_ads.py, fetch_campaign_metrics.py, poll_audit_requests.py, push_to_supabase.py, report_json.py)
+- Daily cron at 2am for campaign metrics (sources .env)
+- Full audit re-run: 402 negative candidates, 7 expansion candidates, 409 search terms pushed (audit_run_id=10)
+- Campaign metrics backfilled (30 days, 44 records)
+- Vercel auto-deployed on git push
+- Type casting fixes in push_to_supabase.py (int/float for Supabase integer/numeric columns)
+- Search term key consistency fix (all objects have matching keys for Supabase bulk insert)
+- fetch_campaign_metrics.py: fixed module import path + added env var overrides
 
-### Known Issues
-- `campaign_metrics` table not yet populated (needs daily cron + initial backfill with `--days 30`)
+### Cleanup / Nice-to-Have
+- Audit runs 6-9 in Supabase have partial/duplicate data from debugging — delete from dashboard
 - Gmail App Password on droplet is only 10 chars (needs 16) — but email is no longer needed
 - Legacy `Downloads/Adwords auditor/` path in repo should be restructured
 - Negative keywords are **campaign-level only** (no account-level shared lists in the current schema)
@@ -222,6 +226,16 @@ markops/
 8. ActionLogPanel + ActionLogRow components: Activity Log tab with undo buttons
 9. Error feedback in SearchTermsPanel for failed inserts
 10. `decided_at` / `decided_by` tracking on keyword status updates
+
+### 2026-03-13 (continued) — Droplet Deployment Session
+1. Deployed all 5 Python scripts to droplet via python3 heredoc + base64 methods
+2. Fixed `push_to_supabase.py`: int()/float() casting for Supabase integer columns
+3. Fixed `push_to_supabase.py`: all search_term objects now have matching keys (Supabase PGRST102 fix)
+4. Fixed `report_json.py`: removed [:50]/[:30] caps on both droplet copies
+5. Fixed `fetch_campaign_metrics.py`: module import path (`google_ads_auditor.google_ads_client`) + env var overrides
+6. Both cron jobs now source `.env` before running
+7. Full audit re-run: 402 negatives + 409 search terms pushed (audit_run_id=10)
+8. Campaign metrics backfilled: 44 records across 30 days
 
 ## Rules for Future Sessions
 1. **Components < 150 lines** — split if exceeding

@@ -89,10 +89,10 @@ def push_audit(report_path: str) -> None:
             'ad_group': n.get('ad_group'),
             'match_type': n.get('recommended_match_type', 'exact'),
             'category': ', '.join(n.get('categories', [])) if isinstance(n.get('categories'), list) else n.get('category', ''),
-            'impressions': n.get('impressions', 0),
-            'clicks': n.get('clicks', 0),
-            'cost': n.get('cost', 0),
-            'conversions': n.get('conversions', 0),
+            'impressions': int(n.get('impressions', 0)),
+            'clicks': int(n.get('clicks', 0)),
+            'cost': float(n.get('cost', 0)),
+            'conversions': int(n.get('conversions', 0)),
             'status': 'candidate',
         } for n in neg_candidates]
         api_post('negative_keywords', neg_rows)
@@ -105,9 +105,9 @@ def push_audit(report_path: str) -> None:
             'audit_run_id': audit_run_id,
             'term': k.get('search_term', k.get('term', '')),
             'campaign': k.get('campaign', 'Unknown'),
-            'clicks': k.get('clicks', 0),
-            'conversions': k.get('conversions', 0),
-            'cpa': k.get('cpa', 0),
+            'clicks': int(k.get('clicks', 0)),
+            'conversions': int(k.get('conversions', 0)),
+            'cpa': float(k.get('cpa', 0)),
             'status': 'candidate',
         } for k in kw_candidates]
         api_post('keyword_expansions', kw_rows)
@@ -122,9 +122,9 @@ def push_audit(report_path: str) -> None:
             'campaign': p.get('campaign', 'Unknown'),
             'ad_group': p.get('ad_group'),
             'reason': p.get('reason', ''),
-            'spend': p.get('spend', p.get('cost', 0)),
-            'quality_score': p.get('quality_score'),
-            'conversions': p.get('conversions', 0),
+            'spend': float(p.get('spend', p.get('cost', 0))),
+            'quality_score': int(p.get('quality_score', 0)) if p.get('quality_score') is not None else None,
+            'conversions': int(p.get('conversions', 0)),
             'status': 'candidate',
         } for p in pause_candidates]
         api_post('keywords_to_pause', pause_rows)
@@ -139,15 +139,15 @@ def push_audit(report_path: str) -> None:
             'audit_run_id': audit_run_id,
             'search_term': n.get('search_term', n.get('term', '')),
             'campaign': n.get('campaign', 'Unknown'),
-            'impressions': n.get('impressions', 0),
-            'clicks': n.get('clicks', 0),
-            'cost': n.get('cost', 0),
-            'conversions': n.get('conversions', 0),
-            'ctr': n.get('ctr', 0),
+            'impressions': int(n.get('impressions', 0)),
+            'clicks': int(n.get('clicks', 0)),
+            'cost': float(n.get('cost', 0)),
+            'conversions': int(n.get('conversions', 0)),
+            'ctr': float(n.get('ctr', 0)),
             'categories': n.get('categories', []),
             'reasons': n.get('reasons', []),
             'suggested_match_type': n.get('suggested_match_type', ''),
-            'priority_score': n.get('priority_score', 0),
+            'priority_score': float(n.get('priority_score', 0)),
             'term_type': 'negative_candidate',
         })
 
@@ -157,12 +157,12 @@ def push_audit(report_path: str) -> None:
             'audit_run_id': audit_run_id,
             'search_term': k.get('search_term', k.get('term', '')),
             'campaign': k.get('campaign', 'Unknown'),
-            'impressions': k.get('impressions', 0),
-            'clicks': k.get('clicks', 0),
-            'cost': k.get('cost', 0),
-            'conversions': k.get('conversions', 0),
-            'ctr': k.get('ctr', 0),
-            'cpa': k.get('cpa'),
+            'impressions': int(k.get('impressions', 0)),
+            'clicks': int(k.get('clicks', 0)),
+            'cost': float(k.get('cost', 0)),
+            'conversions': int(k.get('conversions', 0)),
+            'ctr': float(k.get('ctr', 0)),
+            'cpa': float(k.get('cpa', 0)) if k.get('cpa') is not None else None,
             'term_type': 'expansion_candidate',
         })
 
@@ -176,11 +176,11 @@ def push_audit(report_path: str) -> None:
                 'audit_run_id': audit_run_id,
                 'search_term': w.get('search_term', ''),
                 'campaign': w.get('campaign', 'Unknown'),
-                'impressions': w.get('impressions', 0),
-                'clicks': w.get('clicks', 0),
-                'cost': w.get('cost', 0),
-                'conversions': w.get('conversions', 0),
-                'ctr': w.get('ctr', 0),
+                'impressions': int(w.get('impressions', 0)),
+                'clicks': int(w.get('clicks', 0)),
+                'cost': float(w.get('cost', 0)),
+                'conversions': int(w.get('conversions', 0)),
+                'ctr': float(w.get('ctr', 0)),
                 'term_type': 'wasted_spend',
             })
 
@@ -196,12 +196,12 @@ def push_audit(report_path: str) -> None:
     if summary:
         api_post('search_term_summaries', {
             'audit_run_id': audit_run_id,
-            'total_terms': summary.get('total_terms', 0),
-            'total_cost': summary.get('total_cost', 0),
-            'total_conversions': summary.get('total_conversions', 0),
-            'wasted_spend': summary.get('wasted_spend', 0),
-            'negative_candidates_count': summary.get('negative_candidates_count', 0),
-            'expansion_candidates_count': summary.get('expansion_candidates_count', 0),
+            'total_terms': int(summary.get('total_terms', 0)),
+            'total_cost': float(summary.get('total_cost', 0)),
+            'total_conversions': int(summary.get('total_conversions', 0)),
+            'wasted_spend': float(summary.get('wasted_spend', 0)),
+            'negative_candidates_count': int(summary.get('negative_candidates_count', 0)),
+            'expansion_candidates_count': int(summary.get('expansion_candidates_count', 0)),
             'category_breakdown': search_terms.get('category_breakdown', {}),
         })
         print(f"  Pushed search term summary")

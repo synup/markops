@@ -6,7 +6,11 @@ CREATE TABLE IF NOT EXISTS reddit_feed_sources (
   id SERIAL PRIMARY KEY,
   type TEXT NOT NULL CHECK (type IN ('subreddit', 'keyword')),
   value TEXT NOT NULL,
+  label TEXT,
+  category TEXT,
   enabled BOOLEAN NOT NULL DEFAULT true,
+  last_polled_at TIMESTAMPTZ,
+  post_count INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (type, value)
 );

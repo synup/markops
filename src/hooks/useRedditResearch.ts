@@ -149,8 +149,13 @@ export function useFeedSources() {
 
   useEffect(() => { fetchSources() }, [fetchSources])
 
-  const addSource = async (type: 'subreddit' | 'keyword', value: string) => {
-    const { error } = await supabase.from('reddit_feed_sources').insert({ type, value })
+  const addSource = async (type: 'subreddit' | 'keyword', value: string, label?: string, category?: string) => {
+    const { error } = await supabase.from('reddit_feed_sources').insert({
+      type,
+      value,
+      label: label || null,
+      category: category || null,
+    })
     if (!error) await fetchSources()
     return !error
   }

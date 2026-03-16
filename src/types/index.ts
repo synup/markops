@@ -120,7 +120,11 @@ export interface RedditFeedSource {
   id: number
   type: 'subreddit' | 'keyword'
   value: string
+  label: string | null
+  category: string | null
   enabled: boolean
+  last_polled_at: string | null
+  post_count: number
   created_at: string
 }
 

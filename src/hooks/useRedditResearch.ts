@@ -37,6 +37,17 @@ async function logFeedback(supabase: ReturnType<typeof createClient>, params: {
   })
 }
 
+// ── Undo data type ──────────────────────────────────
+
+export interface ReclassifyUndoData {
+  postId: string
+  scoreId: string
+  fromTrack: 'tool' | 'content'
+  toTrack: 'content' | 'tool'
+  originalCategory: string | null
+  scoreRow: Record<string, unknown>
+}
+
 // ── Tool Ideas ──────────────────────────────────────
 
 export type ToolIdea = RedditToolScore & {
@@ -47,6 +58,7 @@ export type ToolIdea = RedditToolScore & {
 export function useToolIdeas() {
   const [ideas, setIdeas] = useState<ToolIdea[]>([])
   const [loading, setLoading] = useState(true)
+  const [undoData, setUndoData] = useState<ReclassifyUndoData | null>(null)
   const supabase = createClient()
 
   const fetchIdeas = useCallback(async () => {
@@ -104,23 +116,36 @@ export function useToolIdeas() {
 
   const reclassifyToContent = async (postId: string, scoreId: string) => {
     const idea = ideas.find(i => i.post_id === postId)
-    // Delete from tool scores
+    if (!idea) return
+    // Save score row for undo (strip the joined `post`)
+    const { post: _post, latest_action: _action, ...scoreRow } = idea
+    const originalCategory = idea.post.category
     await supabase.from('reddit_tool_scores').delete().eq('id', scoreId)
-    // Update post category
     await supabase.from('reddit_posts').update({ category: 'content_idea' }).eq('id', postId)
-    // Log feedback
     await logFeedback(supabase, {
-      post_id: postId,
-      agent_name: 'tool_scorer',
-      feedback_type: 'reclassified',
-      from_track: 'tool',
-      to_track: 'content',
-      original_score: idea?.composite_score,
+      post_id: postId, agent_name: 'tool_scorer', feedback_type: 'reclassified',
+      from_track: 'tool', to_track: 'content', original_score: idea.composite_score,
     })
+    setUndoData({ postId, scoreId, fromTrack: 'tool', toTrack: 'content', originalCategory, scoreRow })
     await fetchIdeas()
   }
 
-  return { ideas, loading, actOnTool, reclassifyToContent, refresh: fetchIdeas }
+  const undoReclassify = async () => {
+    if (!undoData) return
+    const { postId, scoreRow, originalCategory } = undoData
+    await supabase.from('reddit_tool_scores').insert(scoreRow)
+    await supabase.from('reddit_posts').update({ category: originalCategory }).eq('id', postId)
+    await logFeedback(supabase, {
+      post_id: postId, agent_name: 'tool_scorer', feedback_type: 'undo_reclassify',
+      from_track: 'content', to_track: 'tool',
+    })
+    setUndoData(null)
+    await fetchIdeas()
+  }
+
+  const clearUndo = useCallback(() => setUndoData(null), [])
+
+  return { ideas, loading, actOnTool, reclassifyToContent, undoData, undoReclassify, clearUndo, refresh: fetchIdeas }
 }
 
 // ── Content Ideas ───────────────────────────────────
@@ -133,6 +158,7 @@ export type ContentIdea = RedditContentScore & {
 export function useContentIdeas() {
   const [ideas, setIdeas] = useState<ContentIdea[]>([])
   const [loading, setLoading] = useState(true)
+  const [undoData, setUndoData] = useState<ReclassifyUndoData | null>(null)
   const supabase = createClient()
 
   const fetchIdeas = useCallback(async () => {
@@ -190,20 +216,35 @@ export function useContentIdeas() {
 
   const reclassifyToTool = async (postId: string, scoreId: string) => {
     const idea = ideas.find(i => i.post_id === postId)
+    if (!idea) return
+    const { post: _post, latest_action: _action, ...scoreRow } = idea
+    const originalCategory = idea.post.category
     await supabase.from('reddit_content_scores').delete().eq('id', scoreId)
     await supabase.from('reddit_posts').update({ category: 'tool_request' }).eq('id', postId)
     await logFeedback(supabase, {
-      post_id: postId,
-      agent_name: 'content_validator',
-      feedback_type: 'reclassified',
-      from_track: 'content',
-      to_track: 'tool',
-      original_score: idea?.composite_score,
+      post_id: postId, agent_name: 'content_validator', feedback_type: 'reclassified',
+      from_track: 'content', to_track: 'tool', original_score: idea.composite_score,
     })
+    setUndoData({ postId, scoreId, fromTrack: 'content', toTrack: 'tool', originalCategory, scoreRow })
     await fetchIdeas()
   }
 
-  return { ideas, loading, actOnContent, reclassifyToTool, refresh: fetchIdeas }
+  const undoReclassify = async () => {
+    if (!undoData) return
+    const { postId, scoreRow, originalCategory } = undoData
+    await supabase.from('reddit_content_scores').insert(scoreRow)
+    await supabase.from('reddit_posts').update({ category: originalCategory }).eq('id', postId)
+    await logFeedback(supabase, {
+      post_id: postId, agent_name: 'content_validator', feedback_type: 'undo_reclassify',
+      from_track: 'tool', to_track: 'content',
+    })
+    setUndoData(null)
+    await fetchIdeas()
+  }
+
+  const clearUndo = useCallback(() => setUndoData(null), [])
+
+  return { ideas, loading, actOnContent, reclassifyToTool, undoData, undoReclassify, clearUndo, refresh: fetchIdeas }
 }
 
 // ── Feed Sources ────────────────────────────────────

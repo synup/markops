@@ -2,6 +2,8 @@
 
 import type { ContentIdea } from '@/hooks/useRedditResearch'
 import { ScoreBar } from './ScoreBar'
+import { PostPreview } from './PostPreview'
+import { ReclassifyButton } from './ReclassifyButton'
 
 interface ContentIdeaRowProps {
   idea: ContentIdea
@@ -35,72 +37,39 @@ export function ContentIdeaRow({ idea, onApprove, onReject, onReclassify }: Cont
             {idea.post.title}
           </a>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-            <span>r/{idea.post.subreddit}</span>
-            <span style={{ color: 'var(--text-dim)' }}>·</span>
+            <span className="rounded px-1.5 py-0.5 text-[10px] font-medium" style={{ background: 'var(--surface-3)' }}>
+              r/{idea.post.subreddit}
+            </span>
             <span>{idea.post.upvotes} pts</span>
+            <span style={{ color: 'var(--text-dim)' }}>·</span>
+            <span>{idea.post.num_comments} comments</span>
             {idea.icp_match && (
-              <>
-                <span style={{ color: 'var(--text-dim)' }}>·</span>
-                <span
-                  className="rounded px-1.5 py-0.5 text-[10px] font-medium"
-                  style={{ background: 'var(--green-muted)', color: 'var(--green)' }}
-                >
-                  ICP Match
-                </span>
-              </>
+              <span className="rounded px-1.5 py-0.5 text-[10px] font-medium" style={{ background: 'var(--green-muted)', color: 'var(--green)' }}>ICP Match</span>
             )}
             {idea.content_cluster && (
-              <span
-                className="rounded px-1.5 py-0.5 text-[10px] font-medium"
-                style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}
-              >
+              <span className="rounded px-1.5 py-0.5 text-[10px] font-medium" style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}>
                 {idea.content_cluster.replace(/_/g, ' ')}
               </span>
             )}
             {idea.content_type && (
-              <span className="text-[10px]" style={{ color: 'var(--text-dim)' }}>
-                {idea.content_type.replace(/_/g, ' ')}
-              </span>
+              <span className="text-[10px]" style={{ color: 'var(--text-dim)' }}>{idea.content_type.replace(/_/g, ' ')}</span>
             )}
           </div>
+          <PostPreview post={idea.post} />
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {!isActed && (
-            <button
-              onClick={() => onReclassify(idea.post_id, idea.id)}
-              className="rounded px-2 py-1 text-[10px] font-medium transition-colors"
-              style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}
-              title="Move to Tool Ideas"
-            >
-              → Tools
-            </button>
-          )}
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
           {isActed ? (
-            <span
-              className="rounded px-2 py-1 text-xs font-medium"
-              style={{
-                background: status === 'approved' ? 'var(--green-muted)' : 'var(--red-muted)',
-                color: status === 'approved' ? 'var(--green)' : 'var(--red)',
-              }}
-            >
-              {status}
-            </span>
+            <span className="rounded px-2 py-1 text-xs font-medium" style={{
+              background: status === 'approved' ? 'var(--green-muted)' : 'var(--red-muted)',
+              color: status === 'approved' ? 'var(--green)' : 'var(--red)',
+            }}>{status}</span>
           ) : (
             <>
-              <button
-                onClick={() => onApprove(idea.post_id)}
-                className="rounded px-2.5 py-1 text-xs font-medium transition-colors"
-                style={{ background: 'var(--green-muted)', color: 'var(--green)' }}
-              >
-                Approve
-              </button>
-              <button
-                onClick={() => onReject(idea.post_id)}
-                className="rounded px-2.5 py-1 text-xs font-medium transition-colors"
-                style={{ background: 'var(--red-muted)', color: 'var(--red)' }}
-              >
-                Reject
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => onApprove(idea.post_id)} className="rounded px-2.5 py-1 text-xs font-medium" style={{ background: 'var(--green-muted)', color: 'var(--green)' }}>Approve</button>
+                <button onClick={() => onReject(idea.post_id)} className="rounded px-2.5 py-1 text-xs font-medium" style={{ background: 'var(--red-muted)', color: 'var(--red)' }}>Reject</button>
+              </div>
+              <ReclassifyButton targetTrack="Tools" onConfirm={() => onReclassify(idea.post_id, idea.id)} />
             </>
           )}
         </div>
@@ -116,9 +85,7 @@ export function ContentIdeaRow({ idea, onApprove, onReject, onReclassify }: Cont
       </div>
 
       {idea.action_rationale && (
-        <p className="mt-2 text-xs" style={{ color: 'var(--text-dim)' }}>
-          {idea.action_rationale}
-        </p>
+        <p className="mt-2 text-xs" style={{ color: 'var(--text-dim)' }}>{idea.action_rationale}</p>
       )}
     </div>
   )

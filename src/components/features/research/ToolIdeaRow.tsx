@@ -2,6 +2,8 @@
 
 import type { ToolIdea } from '@/hooks/useRedditResearch'
 import { ScoreBar } from './ScoreBar'
+import { PostPreview } from './PostPreview'
+import { ReclassifyButton } from './ReclassifyButton'
 
 interface ToolIdeaRowProps {
   idea: ToolIdea
@@ -35,66 +37,38 @@ export function ToolIdeaRow({ idea, onApprove, onReject, onReclassify }: ToolIde
             {idea.post.title}
           </a>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-            <span>r/{idea.post.subreddit}</span>
-            <span style={{ color: 'var(--text-dim)' }}>·</span>
+            <span className="rounded px-1.5 py-0.5 text-[10px] font-medium" style={{ background: 'var(--surface-3)' }}>
+              r/{idea.post.subreddit}
+            </span>
             <span>{idea.post.upvotes} pts</span>
             <span style={{ color: 'var(--text-dim)' }}>·</span>
             <span>{idea.post.num_comments} comments</span>
             {idea.tool_type && (
-              <span
-                className="rounded px-1.5 py-0.5 text-[10px] font-medium"
-                style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}
-              >
+              <span className="rounded px-1.5 py-0.5 text-[10px] font-medium" style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}>
                 {idea.tool_type}
               </span>
             )}
             {idea.build_complexity && (
-              <span
-                className="rounded px-1.5 py-0.5 text-[10px] font-medium"
-                style={{ background: 'var(--yellow-muted)', color: 'var(--yellow)' }}
-              >
+              <span className="rounded px-1.5 py-0.5 text-[10px] font-medium" style={{ background: 'var(--yellow-muted)', color: 'var(--yellow)' }}>
                 {idea.build_complexity}
               </span>
             )}
           </div>
+          <PostPreview post={idea.post} />
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {!isActed && (
-            <button
-              onClick={() => onReclassify(idea.post_id, idea.id)}
-              className="rounded px-2 py-1 text-[10px] font-medium transition-colors"
-              style={{ background: 'rgba(59,130,246,0.12)', color: 'var(--blue)' }}
-              title="Move to Content Ideas"
-            >
-              → Content
-            </button>
-          )}
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
           {isActed ? (
-            <span
-              className="rounded px-2 py-1 text-xs font-medium"
-              style={{
-                background: status === 'approved' ? 'var(--green-muted)' : 'var(--red-muted)',
-                color: status === 'approved' ? 'var(--green)' : 'var(--red)',
-              }}
-            >
-              {status}
-            </span>
+            <span className="rounded px-2 py-1 text-xs font-medium" style={{
+              background: status === 'approved' ? 'var(--green-muted)' : 'var(--red-muted)',
+              color: status === 'approved' ? 'var(--green)' : 'var(--red)',
+            }}>{status}</span>
           ) : (
             <>
-              <button
-                onClick={() => onApprove(idea.post_id)}
-                className="rounded px-2.5 py-1 text-xs font-medium transition-colors"
-                style={{ background: 'var(--green-muted)', color: 'var(--green)' }}
-              >
-                Approve
-              </button>
-              <button
-                onClick={() => onReject(idea.post_id)}
-                className="rounded px-2.5 py-1 text-xs font-medium transition-colors"
-                style={{ background: 'var(--red-muted)', color: 'var(--red)' }}
-              >
-                Reject
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => onApprove(idea.post_id)} className="rounded px-2.5 py-1 text-xs font-medium" style={{ background: 'var(--green-muted)', color: 'var(--green)' }}>Approve</button>
+                <button onClick={() => onReject(idea.post_id)} className="rounded px-2.5 py-1 text-xs font-medium" style={{ background: 'var(--red-muted)', color: 'var(--red)' }}>Reject</button>
+              </div>
+              <ReclassifyButton targetTrack="Content" onConfirm={() => onReclassify(idea.post_id, idea.id)} />
             </>
           )}
         </div>
@@ -110,9 +84,7 @@ export function ToolIdeaRow({ idea, onApprove, onReject, onReclassify }: ToolIde
       </div>
 
       {idea.action_rationale && (
-        <p className="mt-2 text-xs" style={{ color: 'var(--text-dim)' }}>
-          {idea.action_rationale}
-        </p>
+        <p className="mt-2 text-xs" style={{ color: 'var(--text-dim)' }}>{idea.action_rationale}</p>
       )}
     </div>
   )

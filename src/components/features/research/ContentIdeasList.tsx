@@ -3,18 +3,19 @@
 import { useState } from 'react'
 import { useContentIdeas } from '@/hooks/useRedditResearch'
 import { ContentIdeaRow } from './ContentIdeaRow'
+import { ReclassifyToast } from './ReclassifyToast'
 
 type Filter = 'all' | 'pending' | 'approved' | 'rejected'
 
 export function ContentIdeasList() {
-  const { ideas, loading, actOnContent, reclassifyToTool } = useContentIdeas()
+  const { ideas, loading, actOnContent, reclassifyToTool, undoData, undoReclassify, clearUndo } = useContentIdeas()
   const [filter, setFilter] = useState<Filter>('all')
 
   if (loading) {
     return <div className="py-8 text-center text-sm" style={{ color: 'var(--text-dim)' }}>Loading content ideas...</div>
   }
 
-  if (!ideas.length) {
+  if (!ideas.length && !undoData) {
     return <div className="py-8 text-center text-sm" style={{ color: 'var(--text-dim)' }}>No content ideas scored yet.</div>
   }
 
@@ -33,6 +34,9 @@ export function ContentIdeasList() {
 
   return (
     <div>
+      {undoData && (
+        <ReclassifyToast trackName="Tool Ideas" onUndo={undoReclassify} onDismiss={clearUndo} />
+      )}
       <FilterBar filter={filter} onFilter={setFilter} counts={counts} />
       <div className="flex flex-col gap-2">
         {filtered.map(idea => (

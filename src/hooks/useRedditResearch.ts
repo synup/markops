@@ -141,7 +141,7 @@ export function useFeedSources() {
     const { data } = await supabase
       .from('reddit_feed_sources')
       .select('*')
-      .order('type')
+      .order('feed_type')
       .order('value')
     setSources(data ?? [])
     setLoading(false)
@@ -149,24 +149,24 @@ export function useFeedSources() {
 
   useEffect(() => { fetchSources() }, [fetchSources])
 
-  const addSource = async (type: 'subreddit' | 'keyword', value: string, label?: string, category?: string) => {
+  const addSource = async (feedType: 'subreddit' | 'keyword_search', value: string, label?: string, notes?: string) => {
     const { error } = await supabase.from('reddit_feed_sources').insert({
-      type,
+      feed_type: feedType,
       value,
       label: label || null,
-      category: category || null,
+      notes: notes || null,
     })
     if (!error) await fetchSources()
     return !error
   }
 
-  const removeSource = async (id: number) => {
+  const removeSource = async (id: string) => {
     const { error } = await supabase.from('reddit_feed_sources').delete().eq('id', id)
     if (!error) await fetchSources()
     return !error
   }
 
-  const toggleSource = async (id: number, enabled: boolean) => {
+  const toggleSource = async (id: string, enabled: boolean) => {
     const { error } = await supabase.from('reddit_feed_sources').update({ enabled }).eq('id', id)
     if (!error) {
       setSources(prev => prev.map(s => s.id === id ? { ...s, enabled } : s))

@@ -13,17 +13,8 @@ export function FeedSourceManager() {
     return <div className="py-8 text-center text-sm" style={{ color: 'var(--text-dim)' }}>Loading feeds...</div>
   }
 
-  const subreddits = sources.filter(s => s.type === 'subreddit')
-  const keywords = sources.filter(s => s.type === 'keyword')
-
-  const categoryGroups = keywords.reduce<Record<string, typeof keywords>>((acc, s) => {
-    const cat = s.category ?? 'uncategorized'
-    if (!acc[cat]) acc[cat] = []
-    acc[cat].push(s)
-    return acc
-  }, {})
-
-  const sortedCategories = Object.keys(categoryGroups).sort()
+  const subreddits = sources.filter(s => s.feed_type === 'subreddit')
+  const keywords = sources.filter(s => s.feed_type === 'keyword_search')
 
   return (
     <div>
@@ -43,8 +34,8 @@ export function FeedSourceManager() {
 
       {showForm && (
         <AddFeedForm
-          onAdd={async (type, value, label, category) => {
-            const ok = await addSource(type, value, label, category)
+          onAdd={async (feedType, value, label, notes) => {
+            const ok = await addSource(feedType, value, label, notes)
             if (ok) setShowForm(false)
             return ok
           }}
@@ -60,18 +51,14 @@ export function FeedSourceManager() {
         {!subreddits.length && <EmptyMsg text="No subreddits configured." />}
       </div>
 
-      {/* Keywords by category */}
-      {sortedCategories.map(cat => (
-        <div key={cat} className="mb-4">
-          <SectionLabel label={formatCategory(cat)} count={categoryGroups[cat].length} />
-          <div className="flex flex-col gap-1">
-            {categoryGroups[cat].map(s => (
-              <FeedSourceRow key={s.id} source={s} onToggle={toggleSource} onRemove={removeSource} />
-            ))}
-          </div>
-        </div>
-      ))}
-      {!keywords.length && <EmptyMsg text="No keyword feeds configured." />}
+      {/* Keyword searches section */}
+      <SectionLabel label="Keyword Searches" count={keywords.length} />
+      <div className="flex flex-col gap-1">
+        {keywords.map(s => (
+          <FeedSourceRow key={s.id} source={s} onToggle={toggleSource} onRemove={removeSource} />
+        ))}
+        {!keywords.length && <EmptyMsg text="No keyword feeds configured." />}
+      </div>
     </div>
   )
 }
@@ -89,8 +76,4 @@ function SectionLabel({ label, count }: { label: string; count: number }) {
 
 function EmptyMsg({ text }: { text: string }) {
   return <div className="py-2 text-center text-xs" style={{ color: 'var(--text-dim)' }}>{text}</div>
-}
-
-function formatCategory(cat: string): string {
-  return cat.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) + ' Keywords'
 }

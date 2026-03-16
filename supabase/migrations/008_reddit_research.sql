@@ -3,16 +3,20 @@
 
 -- Feed sources: subreddits and keyword searches to monitor
 CREATE TABLE IF NOT EXISTS reddit_feed_sources (
-  id SERIAL PRIMARY KEY,
-  type TEXT NOT NULL CHECK (type IN ('subreddit', 'keyword')),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  feed_type TEXT NOT NULL CHECK (feed_type IN ('subreddit', 'keyword_search')),
   value TEXT NOT NULL,
   label TEXT,
-  category TEXT,
   enabled BOOLEAN NOT NULL DEFAULT true,
+  sort_preference TEXT,
+  time_filter TEXT,
+  added_by TEXT,
+  notes TEXT,
   last_polled_at TIMESTAMPTZ,
   post_count INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (type, value)
+  updated_at TIMESTAMPTZ,
+  UNIQUE (feed_type, value)
 );
 
 -- Raw Reddit posts fetched from feed sources

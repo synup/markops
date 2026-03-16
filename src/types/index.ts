@@ -117,15 +117,19 @@ export interface ChangeLogEntry {
 // ── Reddit Research types ───────────────────────────
 
 export interface RedditFeedSource {
-  id: number
-  type: 'subreddit' | 'keyword'
+  id: string
+  feed_type: 'subreddit' | 'keyword_search'
   value: string
   label: string | null
-  category: string | null
   enabled: boolean
+  sort_preference: string | null
+  time_filter: string | null
+  added_by: string | null
+  notes: string | null
   last_polled_at: string | null
   post_count: number
   created_at: string
+  updated_at: string | null
 }
 
 export interface RedditPost {

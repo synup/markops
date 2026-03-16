@@ -2,31 +2,24 @@
 
 import { useState } from 'react'
 
-const KEYWORD_CATEGORIES = [
-  'brand_monitoring',
-  'category',
-  'competitor',
-  'intent',
-  'pain_point',
-]
-
 interface AddFeedFormProps {
-  onAdd: (type: 'subreddit' | 'keyword', value: string, label?: string, category?: string) => Promise<boolean>
+  onAdd: (feedType: 'subreddit' | 'keyword_search', value: string, label?: string, notes?: string) => Promise<boolean>
 }
 
 export function AddFeedForm({ onAdd }: AddFeedFormProps) {
-  const [type, setType] = useState<'subreddit' | 'keyword'>('subreddit')
+  const [feedType, setFeedType] = useState<'subreddit' | 'keyword_search'>('subreddit')
   const [value, setValue] = useState('')
   const [label, setLabel] = useState('')
-  const [category, setCategory] = useState(KEYWORD_CATEGORIES[0])
+  const [notes, setNotes] = useState('')
   const [adding, setAdding] = useState(false)
 
   const handleSubmit = async () => {
     if (!value.trim()) return
     setAdding(true)
-    await onAdd(type, value.trim(), label.trim() || undefined, type === 'keyword' ? category : undefined)
+    await onAdd(feedType, value.trim(), label.trim() || undefined, notes.trim() || undefined)
     setValue('')
     setLabel('')
+    setNotes('')
     setAdding(false)
   }
 
@@ -39,19 +32,19 @@ export function AddFeedForm({ onAdd }: AddFeedFormProps) {
     >
       <div className="mb-2 flex items-center gap-2">
         <select
-          value={type}
-          onChange={e => setType(e.target.value as 'subreddit' | 'keyword')}
+          value={feedType}
+          onChange={e => setFeedType(e.target.value as 'subreddit' | 'keyword_search')}
           className="rounded px-2 py-1.5 text-xs"
           style={inputStyle}
         >
           <option value="subreddit">Subreddit</option>
-          <option value="keyword">Keyword</option>
+          <option value="keyword_search">Keyword Search</option>
         </select>
         <input
           value={value}
           onChange={e => setValue(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-          placeholder={type === 'subreddit' ? 'subreddit name' : 'search keyword'}
+          placeholder={feedType === 'subreddit' ? 'subreddit name' : 'search keyword'}
           className="flex-1 rounded px-2.5 py-1.5 text-xs"
           style={inputStyle}
         />
@@ -64,18 +57,13 @@ export function AddFeedForm({ onAdd }: AddFeedFormProps) {
           className="flex-1 rounded px-2.5 py-1.5 text-xs"
           style={inputStyle}
         />
-        {type === 'keyword' && (
-          <select
-            value={category}
-            onChange={e => setCategory(e.target.value)}
-            className="rounded px-2 py-1.5 text-xs"
-            style={inputStyle}
-          >
-            {KEYWORD_CATEGORIES.map(c => (
-              <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>
-            ))}
-          </select>
-        )}
+        <input
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          placeholder="Notes (optional)"
+          className="flex-1 rounded px-2.5 py-1.5 text-xs"
+          style={inputStyle}
+        />
         <button
           onClick={handleSubmit}
           disabled={adding || !value.trim()}

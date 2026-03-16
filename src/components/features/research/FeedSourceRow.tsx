@@ -2,12 +2,12 @@ import type { RedditFeedSource } from '@/types'
 
 interface FeedSourceRowProps {
   source: RedditFeedSource
-  onToggle: (id: number, enabled: boolean) => void
-  onRemove: (id: number) => void
+  onToggle: (id: string, enabled: boolean) => void
+  onRemove: (id: string) => void
 }
 
 export function FeedSourceRow({ source, onToggle, onRemove }: FeedSourceRowProps) {
-  const displayName = source.type === 'subreddit' ? `r/${source.value}` : source.value
+  const displayName = source.feed_type === 'subreddit' ? `r/${source.value}` : source.value
   const polledAgo = source.last_polled_at
     ? timeAgo(new Date(source.last_polled_at))
     : 'never'
@@ -44,6 +44,8 @@ export function FeedSourceRow({ source, onToggle, onRemove }: FeedSourceRowProps
             )}
           </div>
           <div className="mt-0.5 flex items-center gap-2 text-[10px]" style={{ color: 'var(--text-dim)' }}>
+            <span>{source.feed_type === 'subreddit' ? 'subreddit' : 'keyword'}</span>
+            <span>·</span>
             <span>{source.post_count} posts</span>
             <span>·</span>
             <span>polled {polledAgo}</span>

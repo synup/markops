@@ -133,68 +133,90 @@ export interface RedditFeedSource {
 }
 
 export interface RedditPost {
-  id: number
-  feed_source_id: number
+  id: string
+  feed_source_id: string | null
   reddit_id: string
   subreddit: string
   title: string
   selftext: string | null
+  summary: string | null
   author: string
   url: string
-  permalink: string
-  score: number
+  upvotes: number
   num_comments: number
-  created_utc: string
-  fetched_at: string
+  flair: string | null
+  is_self: boolean
+  matched_keywords: string[] | null
+  source_type: string | null
+  source_label: string | null
+  category: string | null
+  enriched: boolean
+  published_at: string | null
+  collected_at: string
 }
 
 export interface RedditToolScore {
-  id: number
-  post_id: number
+  id: string
+  post_id: string
   relevance_score: number
-  pain_level: number
-  tool_fit: number
-  total_score: number
-  category: string
-  reasoning: string | null
-  scored_at: string
+  intent_score: number
+  engagement_score: number
+  recency_score: number
+  competitive_gap_score: number
+  composite_score: number
+  build_complexity: string | null
+  estimated_build_hours: number | null
+  tool_type: string | null
+  similar_tools_exist: boolean | null
+  similar_tools_notes: string | null
+  action_rationale: string | null
 }
 
 export interface RedditContentScore {
-  id: number
-  post_id: number
-  icp_match: number
-  content_potential: number
-  cluster: string | null
-  brief: string | null
-  total_score: number
-  scored_at: string
+  id: string
+  post_id: string
+  relevance_score: number
+  search_demand_score: number
+  engagement_score: number
+  recency_score: number
+  competitive_gap_score: number
+  composite_score: number
+  icp_match: boolean
+  content_cluster: string | null
+  cluster_match_score: number | null
+  existing_blog_overlap: boolean | null
+  content_type: string | null
+  target_keywords: string[] | null
+  action_rationale: string | null
 }
 
 export interface RedditToolAction {
-  id: number
-  tool_score_id: number
-  action: 'approved' | 'rejected'
-  assigned_to: string | null
+  id: string
+  post_id: string
+  action: string
+  deploy_url: string | null
   notes: string | null
   acted_by: string | null
   acted_at: string
 }
 
 export interface RedditContentAction {
-  id: number
-  content_score_id: number
-  action: 'approved' | 'rejected'
-  brief_status: string | null
+  id: string
+  post_id: string
+  action: string
+  brief_url: string | null
   notes: string | null
   acted_by: string | null
   acted_at: string
 }
 
 export interface RedditSubredditSuggestion {
-  id: number
+  id: string
   subreddit: string
   reason: string | null
+  discovered_via: string | null
+  post_frequency: number | null
+  relevance_score: number | null
   status: 'pending' | 'approved' | 'rejected'
   suggested_at: string
 }

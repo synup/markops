@@ -25,42 +25,43 @@ export function useToolIdeas() {
   const supabase = createClient()
 
   const fetchIdeas = useCallback(async () => {
+    // Fetch scores with joined post data
     const { data: scores } = await supabase
       .from('reddit_tool_scores')
-      .select('*, post:reddit_posts(*)')
-      .order('total_score', { ascending: false })
+      .select('*, post:reddit_posts!post_id(*)')
+      .order('composite_score', { ascending: false })
       .limit(100)
 
-    if (!scores) { setLoading(false); return }
+    if (!scores || !scores.length) { setLoading(false); return }
 
-    const scoreIds = scores.map(s => s.id)
+    // Fetch actions keyed by post_id
+    const postIds = scores.map(s => s.post_id)
     const { data: actions } = await supabase
       .from('reddit_tool_actions')
       .select('*')
-      .in('tool_score_id', scoreIds)
+      .in('post_id', postIds)
       .order('acted_at', { ascending: false })
 
-    const actionMap = new Map<number, RedditToolAction>()
+    const actionMap = new Map<string, RedditToolAction>()
     actions?.forEach(a => {
-      if (!actionMap.has(a.tool_score_id)) actionMap.set(a.tool_score_id, a)
+      if (!actionMap.has(a.post_id)) actionMap.set(a.post_id, a)
     })
 
     setIdeas(scores.map(s => ({
       ...s,
       post: s.post as RedditPost,
-      latest_action: actionMap.get(s.id) ?? null,
+      latest_action: actionMap.get(s.post_id) ?? null,
     })))
     setLoading(false)
   }, [])
 
   useEffect(() => { fetchIdeas() }, [fetchIdeas])
 
-  const actOnTool = async (toolScoreId: number, action: 'approved' | 'rejected', assignedTo?: string, notes?: string) => {
+  const actOnTool = async (postId: string, action: string, notes?: string) => {
     const { data: { user } } = await supabase.auth.getUser()
     const { error } = await supabase.from('reddit_tool_actions').insert({
-      tool_score_id: toolScoreId,
+      post_id: postId,
       action,
-      assigned_to: assignedTo ?? null,
       notes: notes ?? null,
       acted_by: user?.id ?? null,
     })
@@ -86,40 +87,39 @@ export function useContentIdeas() {
   const fetchIdeas = useCallback(async () => {
     const { data: scores } = await supabase
       .from('reddit_content_scores')
-      .select('*, post:reddit_posts(*)')
-      .order('total_score', { ascending: false })
+      .select('*, post:reddit_posts!post_id(*)')
+      .order('composite_score', { ascending: false })
       .limit(100)
 
-    if (!scores) { setLoading(false); return }
+    if (!scores || !scores.length) { setLoading(false); return }
 
-    const scoreIds = scores.map(s => s.id)
+    const postIds = scores.map(s => s.post_id)
     const { data: actions } = await supabase
       .from('reddit_content_actions')
       .select('*')
-      .in('content_score_id', scoreIds)
+      .in('post_id', postIds)
       .order('acted_at', { ascending: false })
 
-    const actionMap = new Map<number, RedditContentAction>()
+    const actionMap = new Map<string, RedditContentAction>()
     actions?.forEach(a => {
-      if (!actionMap.has(a.content_score_id)) actionMap.set(a.content_score_id, a)
+      if (!actionMap.has(a.post_id)) actionMap.set(a.post_id, a)
     })
 
     setIdeas(scores.map(s => ({
       ...s,
       post: s.post as RedditPost,
-      latest_action: actionMap.get(s.id) ?? null,
+      latest_action: actionMap.get(s.post_id) ?? null,
     })))
     setLoading(false)
   }, [])
 
   useEffect(() => { fetchIdeas() }, [fetchIdeas])
 
-  const actOnContent = async (contentScoreId: number, action: 'approved' | 'rejected', briefStatus?: string, notes?: string) => {
+  const actOnContent = async (postId: string, action: string, notes?: string) => {
     const { data: { user } } = await supabase.auth.getUser()
     const { error } = await supabase.from('reddit_content_actions').insert({
-      content_score_id: contentScoreId,
+      post_id: postId,
       action,
-      brief_status: briefStatus ?? null,
       notes: notes ?? null,
       acted_by: user?.id ?? null,
     })
@@ -195,7 +195,7 @@ export function useSubredditSuggestions() {
 
   useEffect(() => { fetchSuggestions() }, [fetchSuggestions])
 
-  const updateStatus = async (id: number, status: 'approved' | 'rejected') => {
+  const updateStatus = async (id: string, status: 'approved' | 'rejected') => {
     const { error } = await supabase
       .from('reddit_subreddit_suggestions')
       .update({ status })
@@ -212,9 +212,9 @@ export function useSubredditSuggestions() {
 // ── Research Activity ───────────────────────────────
 
 export interface ResearchAction {
-  id: number
+  id: string
   type: 'tool' | 'content'
-  action: 'approved' | 'rejected'
+  action: string
   post_title: string
   acted_at: string
 }
@@ -229,12 +229,12 @@ export function useResearchActivity() {
       const [{ data: toolActions }, { data: contentActions }] = await Promise.all([
         supabase
           .from('reddit_tool_actions')
-          .select('id, action, acted_at, tool_score:reddit_tool_scores(post:reddit_posts(title))')
+          .select('id, action, acted_at, post:reddit_posts!post_id(title)')
           .order('acted_at', { ascending: false })
           .limit(25),
         supabase
           .from('reddit_content_actions')
-          .select('id, action, acted_at, content_score:reddit_content_scores(post:reddit_posts(title))')
+          .select('id, action, acted_at, post:reddit_posts!post_id(title)')
           .order('acted_at', { ascending: false })
           .limit(25),
       ])
@@ -242,23 +242,23 @@ export function useResearchActivity() {
       const combined: ResearchAction[] = []
 
       toolActions?.forEach(a => {
-        const score = a.tool_score as unknown as { post: { title: string } } | null
+        const post = a.post as unknown as { title: string } | null
         combined.push({
-          id: a.id,
+          id: `tool-${a.id}`,
           type: 'tool',
-          action: a.action as 'approved' | 'rejected',
-          post_title: score?.post?.title ?? 'Unknown post',
+          action: a.action,
+          post_title: post?.title ?? 'Unknown post',
           acted_at: a.acted_at,
         })
       })
 
       contentActions?.forEach(a => {
-        const score = a.content_score as unknown as { post: { title: string } } | null
+        const post = a.post as unknown as { title: string } | null
         combined.push({
-          id: a.id + 100000,
+          id: `content-${a.id}`,
           type: 'content',
-          action: a.action as 'approved' | 'rejected',
-          post_title: score?.post?.title ?? 'Unknown post',
+          action: a.action,
+          post_title: post?.title ?? 'Unknown post',
           acted_at: a.acted_at,
         })
       })

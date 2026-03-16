@@ -39,8 +39,8 @@ export function ToolIdeasList() {
           <ToolIdeaRow
             key={idea.id}
             idea={idea}
-            onApprove={(id) => actOnTool(id, 'approved')}
-            onReject={(id) => actOnTool(id, 'rejected')}
+            onApprove={(postId) => actOnTool(postId, 'approved')}
+            onReject={(postId) => actOnTool(postId, 'rejected')}
           />
         ))}
       </div>

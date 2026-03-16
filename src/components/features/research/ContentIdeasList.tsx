@@ -39,8 +39,8 @@ export function ContentIdeasList() {
           <ContentIdeaRow
             key={idea.id}
             idea={idea}
-            onApprove={(id) => actOnContent(id, 'approved')}
-            onReject={(id) => actOnContent(id, 'rejected')}
+            onApprove={(postId) => actOnContent(postId, 'approved')}
+            onReject={(postId) => actOnContent(postId, 'rejected')}
           />
         ))}
       </div>

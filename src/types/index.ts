@@ -113,3 +113,80 @@ export interface ChangeLogEntry {
   pushed_by: string | null
   pushed_at: string
 }
+
+// ── Reddit Research types ───────────────────────────
+
+export interface RedditFeedSource {
+  id: number
+  type: 'subreddit' | 'keyword'
+  value: string
+  enabled: boolean
+  created_at: string
+}
+
+export interface RedditPost {
+  id: number
+  feed_source_id: number
+  reddit_id: string
+  subreddit: string
+  title: string
+  selftext: string | null
+  author: string
+  url: string
+  permalink: string
+  score: number
+  num_comments: number
+  created_utc: string
+  fetched_at: string
+}
+
+export interface RedditToolScore {
+  id: number
+  post_id: number
+  relevance_score: number
+  pain_level: number
+  tool_fit: number
+  total_score: number
+  category: string
+  reasoning: string | null
+  scored_at: string
+}
+
+export interface RedditContentScore {
+  id: number
+  post_id: number
+  icp_match: number
+  content_potential: number
+  cluster: string | null
+  brief: string | null
+  total_score: number
+  scored_at: string
+}
+
+export interface RedditToolAction {
+  id: number
+  tool_score_id: number
+  action: 'approved' | 'rejected'
+  assigned_to: string | null
+  notes: string | null
+  acted_by: string | null
+  acted_at: string
+}
+
+export interface RedditContentAction {
+  id: number
+  content_score_id: number
+  action: 'approved' | 'rejected'
+  brief_status: string | null
+  notes: string | null
+  acted_by: string | null
+  acted_at: string
+}
+
+export interface RedditSubredditSuggestion {
+  id: number
+  subreddit: string
+  reason: string | null
+  status: 'pending' | 'approved' | 'rejected'
+  suggested_at: string
+}

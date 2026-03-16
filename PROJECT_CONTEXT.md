@@ -1,6 +1,6 @@
 # Marketing HQ — Project Context
 
-> Updated end of session 2026-03-13 (evening). This file is the single source of truth for continuing work on this project.
+> Updated end of session 2026-03-16. This file is the single source of truth for continuing work on this project.
 
 ## What This Is
 
@@ -16,6 +16,7 @@
 | Poller | poll_audit_requests.py (cron */5) | DO droplet | Polls for on-demand + scheduled audits every 5 min |
 | Auth | Supabase Auth + Google OAuth | Supabase | Restricted to @synup.com emails |
 | API | Supabase REST API | Supabase | For Clawbot / CEO daily data access (service_role key) |
+| Reddit Research | Python (CrewAI agents) | DO droplet | 6-agent pipeline: RSS polling → scoring → tool specs → promotions → briefs |
 
 ## Repo Structure (synup/markops)
 
@@ -29,6 +30,7 @@ markops/
 │   │   │   │   ├── audit/     ← Adwords audit view (6 tabs: Search Terms, Negatives, Expansion, Pause, Issues, Activity Log)
 │   │   │   │   ├── campaigns/ ← Campaign analytics (pulls from campaign_metrics or audit report fallback)
 │   │   │   │   ├── keywords/  ← Negative keyword management
+│   │   │   │   ├── research/  ← Reddit Research (4 tabs: Tool Ideas, Content Ideas, Feed, Agents)
 │   │   │   │   └── settings/  ← User profile + Audit Scheduler + User Management (admin only)
 │   │   │   └── api/auth/      ← OAuth callback
 │   │   ├── components/
@@ -38,9 +40,10 @@ markops/
 │   │   │       ├── audit/     ← AuditScoreHeader, AuditTriggerButton, SearchTermsPanel, SearchTermRow, ExpansionPanel, PausePanel, ActionLogPanel, ActionLogRow
 │   │   │       ├── campaigns/ ← CampaignTable
 │   │   │       ├── keywords/  ← NegativeKeywordRow, NegativeKeywordsList, KeywordExpansionRow
+│   │   │       ├── research/  ← 19 components: ToolIdeasList, ContentIdeasList, ToolIdeaRow, ContentIdeaRow, FeedTab, FeedSourceManager, FeedSourceRow, AddFeedForm, AgentsTab, AgentCard, AgentEditor, PipelineStatus, ResearchStatsHeader, ResearchActivityLog, SubredditSuggestionsList, ScoreBar, PostPreview, ReclassifyButton, ReclassifyToast
 │   │   │       ├── schedule/  ← ScheduleDisplay, ScheduleForm, TimezoneSelect
 │   │   │       └── users/     ← UserManagement, UserRow
-│   │   ├── hooks/             ← useAuth, useAuditData, useAuditTrigger, useAuditSchedule, useCampaigns, useSearchTerms, useUsers, useKeywordActions
+│   │   ├── hooks/             ← useAuth, useAuditData, useAuditTrigger, useAuditSchedule, useCampaigns, useSearchTerms, useUsers, useKeywordActions, useRedditResearch (7 sub-hooks)
 │   │   ├── lib/supabase/      ← Supabase client configs (browser, server, admin)
 │   │   └── types/             ← TypeScript interfaces
 │   ├── supabase/
@@ -49,7 +52,9 @@ markops/
 │   │   │   ├── 002_search_terms_and_audit_requests.sql ← 3 tables (audit_requests, search_terms, search_term_summaries)
 │   │   │   ├── 003_audit_schedules.sql      ← 1 table (audit_schedules)
 │   │   │   ├── 004_admin_and_campaigns.sql  ← Set niladri as admin + admin RLS policies
-│   │   │   └── 005_keyword_action_log.sql   ← Audit trail table + decided_at column + insert policy safety
+│   │   │   ├── 005_keyword_action_log.sql   ← Audit trail table + decided_at column + insert policy safety
+│   │   │   ├── 008_reddit_research.sql      ← 7 Reddit tables (feed_sources, posts, tool/content scores, tool/content actions, subreddit_suggestions, agent_configs) + RLS + indexes
+│   │   │   └── 008b_seed_reddit_feeds.sql   ← 10 subreddit + 20 keyword_search seed feeds
 │   │   ├── push_to_supabase.py              ← Pushes audit JSON → Supabase (6 sections)
 │   │   ├── poll_audit_requests.py           ← Polls for on-demand + scheduled audits
 │   │   └── run_weekly_audit.sh              ← Legacy cron runner (replaced by scheduler)
@@ -83,7 +88,7 @@ markops/
 - **Font**: System fonts (-apple-system, Inter)
 - **Component rule**: No component > 150 lines. UI separated from logic via hooks.
 
-## Database Tables (15 total, 7 migrations)
+## Database Tables (22 total, 9 migrations)
 
 | Table | Purpose | Written By |
 |-------|---------|-----------|
@@ -100,6 +105,15 @@ markops/
 | `audit_schedules` | User-configured recurring audit schedules | Dashboard users → droplet checks |
 | `keyword_action_log` | Audit trail: who did what, when, with undo support | Dashboard users |
 | `push_requests` | Push-to-Ads requests (pending→processing→completed/failed) | Dashboard → Droplet |
+| `reddit_feed_sources` | Subreddit + keyword_search feeds (feed_type, enabled, post_count) | Dashboard users |
+| `reddit_posts` | Collected Reddit posts (upvotes, num_comments, selftext, summary, enriched) | Droplet (reddit_rss_poller.py) |
+| `reddit_tool_scores` | AI-scored tool ideas (composite_score/100, 5 sub-scores/10, tool_type, build_complexity) | Droplet (score_posts.py) |
+| `reddit_content_scores` | AI-scored content ideas (composite_score/100, 5 sub-scores/10, icp_match, content_cluster) | Droplet (score_posts.py) |
+| `reddit_tool_actions` | Approve/reject actions on tool ideas (linked by post_id) | Dashboard users |
+| `reddit_content_actions` | Approve/reject actions on content ideas (linked by post_id) | Dashboard users |
+| `reddit_subreddit_suggestions` | AI-suggested subreddits (status: suggested→approved/rejected) | Droplet → Dashboard |
+| `reddit_agent_configs` | Agent system prompts with versioning (agent_name, agent_role, model, enabled) | Dashboard users |
+| `reddit_feedback_log` | Tracks all approve/reject/reclassify actions with metadata | Dashboard (auto-logged) |
 
 ## Approval Workflow
 
@@ -119,7 +133,7 @@ markops/
 
 - **Project name**: Adwords
 - **URL**: `https://bgxgukkriymmtlzkkjkg.supabase.co`
-- **Migrations 001–007 have all been run**
+- **Migrations 001–008b have all been run**
 - **Google OAuth configured** with @synup.com domain restriction
 - **Redirect URLs**: `https://marketing-hq-nine.vercel.app/api/auth/callback` and `http://localhost:3000/api/auth/callback`
 
@@ -135,22 +149,24 @@ markops/
 
 - **IP**: `167.71.229.75` (Ubuntu 22.04, Bangalore)
 - **Project dir**: `/opt/google-ads-auditor`
-- **Deployed scripts**: `push_to_supabase.py`, `poll_audit_requests.py`, `push_negatives_to_ads.py`, `fetch_campaign_metrics.py`
-- **Cron**: `*/5 * * * *` polls for on-demand audits + scheduled audits + push-to-ads requests
-- **Cron (daily 2am)**: `fetch_campaign_metrics.py --days 1` (sources .env, logs to /var/log/campaign_metrics.log)
+- **Deployed scripts (Ads)**: `push_to_supabase.py`, `poll_audit_requests.py`, `push_negatives_to_ads.py`, `fetch_campaign_metrics.py`
+- **Deployed scripts (Reddit)**: `reddit_rss_poller.py`, `score_posts.py`, `generate_tool_specs.py`, `generate_promotions.py`, `generate_briefs.py` (in `/opt/reddit-research-tool/`)
+- **Cron (Ads)**: `*/5 * * * *` polls for on-demand audits + scheduled audits + push-to-ads requests
+- **Cron (Ads daily 2am)**: `fetch_campaign_metrics.py --days 1` (sources .env, logs to /var/log/campaign_metrics.log)
+- **Cron (Reddit)**: 7 jobs — RSS poller (every 30min), score_posts (hourly), generate_tool_specs (every 2h), generate_promotions (every 4h), generate_briefs (every 4h), subreddit_suggester (daily), feed_enricher (every 6h)
 - **Swap**: 1GB swap file added (droplet only has 1GB RAM)
 - **Env vars in `/opt/google-ads-auditor/.env`**: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_ADS_CUSTOMER_ID, GOOGLE_ADS_LOGIN_CUSTOMER_ID, plus Google Ads OAuth credentials
 - **Google Ads account**: Synup USA - Agency (185 campaigns, 36,896 keywords)
 - **Patch applied**: `google_ads_client.py` line ~371 — added `campaign.status` to fetch_extensions SELECT clause
 
-## Current State (2026-03-13)
+## Current State (2026-03-16)
 
 ### Completed
 - Next.js project scaffolded with all core files
-- Supabase database with 14 tables (migrations 001-005 run, 006+007 pending)
+- Supabase database with 22 tables (migrations 001-008b all run)
 - Google OAuth working (tested — login successful on both localhost and Vercel)
-- Dashboard pages: Home, Audit (8 tabs), Campaigns, Keywords, Settings
-- Data hooks: useAuth, useAuditData, useAuditTrigger, useAuditSchedule, useCampaigns, useSearchTerms, useUsers, useKeywordActions, usePushToAds, useChangelog
+- Dashboard pages: Home, Audit (8 tabs), Campaigns, Keywords, Research (4 tabs), Settings
+- Data hooks: useAuth, useAuditData, useAuditTrigger, useAuditSchedule, useCampaigns, useSearchTerms, useUsers, useKeywordActions, usePushToAds, useChangelog, useRedditResearch (7 sub-hooks)
 - Push-to-Supabase script with search terms support (key mismatch fixed)
 - On-demand audit trigger (dashboard → audit_requests → droplet polls)
 - Scheduler UI (frequency/day/time/timezone picker on Settings page)
@@ -190,6 +206,32 @@ markops/
 - Type casting fixes in push_to_supabase.py (int/float for Supabase integer/numeric columns)
 - Search term key consistency fix (all objects have matching keys for Supabase bulk insert)
 - fetch_campaign_metrics.py: fixed module import path + added env var overrides
+
+### Reddit Research Page (2026-03-16)
+- **Research page** at `/research` with 4 tabs: Tool Ideas, Content Ideas, Feed, Agents
+- **"Reddit" in sidebar** navigation (between Keywords and Settings, icon: ◈)
+- **useRedditResearch.ts** hook (~480 lines) with 7 sub-hooks:
+  - `useToolIdeas()` — fetches tool scores with joined posts, approve/reject, reclassify to content with undo
+  - `useContentIdeas()` — fetches content scores with joined posts, approve/reject, reclassify to tool with undo
+  - `useFeedSources()` — CRUD on reddit_feed_sources, add/remove/toggle feeds
+  - `useSubredditSuggestions()` — read/approve/reject AI-suggested subreddits
+  - `useAgentConfigs()` — read agents, edit system prompts (version increment), enable/disable toggle
+  - `useResearchActivity()` — joins tool+content actions with post titles for activity log
+  - `useResearchStats()` — count queries across all tables for stats header
+- **19 components** (all under 150 lines) in `src/components/features/research/`:
+  - Tool/Content Ideas: `ToolIdeasList`, `ContentIdeasList`, `ToolIdeaRow`, `ContentIdeaRow` — filter bar (All/Pending/Approved/Rejected with counts), score breakdowns (6 ScoreBars), approve/reject buttons
+  - Feed Management: `FeedTab`, `FeedSourceManager`, `FeedSourceRow`, `AddFeedForm` — CRUD for subreddit + keyword_search feeds, enable/disable toggle, post counts
+  - Agents: `AgentsTab`, `AgentCard`, `AgentEditor` — view/edit agent system prompts with version tracking, enable/disable toggle
+  - Pipeline: `PipelineStatus` — visual 6-agent pipeline (Tool Track + Content Track)
+  - Stats: `ResearchStatsHeader` — 6 stat cards (Reddit Posts, Tool/Content Ideas, Approved counts, Active Feeds)
+  - Shared: `ScoreBar`, `PostPreview` (summary + URL + copy button), `ReclassifyButton` (with inline confirm), `ReclassifyToast` (10s countdown undo banner)
+  - Activity: `ResearchActivityLog`, `SubredditSuggestionsList`
+- **Reclassify system**: Move ideas between Tool↔Content tracks with confirmation dialog, undo within 10 seconds
+- **Feedback logging**: All approve/reject/reclassify actions logged to `reddit_feedback_log` table
+- **Post preview**: Shows summary/selftext (first 200 chars) + Reddit URL with clipboard copy button
+- **9 Reddit types** in `src/types/index.ts`: RedditFeedSource, RedditPost, RedditToolScore, RedditContentScore, RedditToolAction, RedditContentAction, RedditSubredditSuggestion, RedditAgentConfig, RedditFeedbackLog
+- **Migration SQL files** for version control: `008_reddit_research.sql` (7 tables + RLS + indexes), `008b_seed_reddit_feeds.sql` (30 seed feeds)
+- **PostgREST joins** using FK hints: `reddit_posts!post_id(*)` for score→post joins
 
 ### Cleanup / Nice-to-Have
 - Audit runs 6-9 in Supabase have partial/duplicate data from debugging — delete from dashboard
@@ -242,6 +284,20 @@ markops/
 8. Campaign metrics backfilled: 44 records across 30 days
 9. Created `MARKETING_HQ_USER_GUIDE.docx` — professional user guide with API key generation + Clawbot setup instructions
 10. Created `MARKETING_HQ_ROADMAP.docx` — 12-page roadmap with 3 phases (Analytics Foundation, Content & Lead Funnel, Automation & Workflows), contributor best practices, new feature checklist, data source pattern, database migration guide, droplet deployment guide, and AI assistant instructions
+
+### 2026-03-16 — Reddit Research Page Session
+1. Built `/research` page with 4 tabs (Tool Ideas, Content Ideas, Feed, Agents)
+2. Created `useRedditResearch.ts` hook with 7 sub-hooks (~480 lines)
+3. Created 19 components in `src/components/features/research/` (all under 150 lines)
+4. Added "Reddit" to sidebar navigation
+5. Fixed feed_sources display: column name `type`→`feed_type`, value `'keyword'`→`'keyword_search'`, id `number`→`uuid string`
+6. Fixed Tool/Content Ideas empty tabs: rebuilt all Reddit type interfaces from actual Supabase schemas discovered by reading Python agent scripts — `score`→`upvotes`, `total_score`→`composite_score`, `tool_score_id`→`post_id`, `pain_level`→`intent_score`, `cluster`→`content_cluster`, `icp_match` boolean not number
+7. Added reclassify buttons (Tool↔Content) with inline confirmation and 10-second undo toast
+8. Added feedback logging to `reddit_feedback_log` for all approve/reject/reclassify actions
+9. Added Agents tab: view/edit system prompts with version increment, enable/disable toggle
+10. Added post content preview with summary truncation + URL display with clipboard copy button
+11. Created migration SQL files (008, 008b) for version control
+12. Updated PROJECT_CONTEXT.md with all Reddit Research work
 
 ## Rules for Future Sessions
 1. **Components < 150 lines** — split if exceeding

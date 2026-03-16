@@ -7,7 +7,7 @@ import { ContentIdeaRow } from './ContentIdeaRow'
 type Filter = 'all' | 'pending' | 'approved' | 'rejected'
 
 export function ContentIdeasList() {
-  const { ideas, loading, actOnContent } = useContentIdeas()
+  const { ideas, loading, actOnContent, reclassifyToTool } = useContentIdeas()
   const [filter, setFilter] = useState<Filter>('all')
 
   if (loading) {
@@ -41,6 +41,7 @@ export function ContentIdeasList() {
             idea={idea}
             onApprove={(postId) => actOnContent(postId, 'approved')}
             onReject={(postId) => actOnContent(postId, 'rejected')}
+            onReclassify={(postId, scoreId) => reclassifyToTool(postId, scoreId)}
           />
         ))}
       </div>

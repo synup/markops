@@ -7,9 +7,10 @@ interface ToolIdeaRowProps {
   idea: ToolIdea
   onApprove: (postId: string) => void
   onReject: (postId: string) => void
+  onReclassify: (postId: string, scoreId: string) => void
 }
 
-export function ToolIdeaRow({ idea, onApprove, onReject }: ToolIdeaRowProps) {
+export function ToolIdeaRow({ idea, onApprove, onReject, onReclassify }: ToolIdeaRowProps) {
   const status = idea.latest_action?.action
   const isActed = status === 'approved' || status === 'rejected'
 
@@ -58,6 +59,16 @@ export function ToolIdeaRow({ idea, onApprove, onReject }: ToolIdeaRowProps) {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
+          {!isActed && (
+            <button
+              onClick={() => onReclassify(idea.post_id, idea.id)}
+              className="rounded px-2 py-1 text-[10px] font-medium transition-colors"
+              style={{ background: 'rgba(59,130,246,0.12)', color: 'var(--blue)' }}
+              title="Move to Content Ideas"
+            >
+              → Content
+            </button>
+          )}
           {isActed ? (
             <span
               className="rounded px-2 py-1 text-xs font-medium"
@@ -89,7 +100,6 @@ export function ToolIdeaRow({ idea, onApprove, onReject }: ToolIdeaRowProps) {
         </div>
       </div>
 
-      {/* Score breakdown */}
       <div className="mt-3 grid grid-cols-3 gap-3 md:grid-cols-6">
         <ScoreBar label="Relevance" value={idea.relevance_score} max={10} />
         <ScoreBar label="Intent" value={idea.intent_score} max={10} />

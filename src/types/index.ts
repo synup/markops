@@ -210,6 +210,35 @@ export interface RedditContentAction {
   acted_at: string
 }
 
+export interface RedditAgentConfig {
+  id: string
+  agent_name: string
+  agent_role: string
+  system_prompt: string
+  model: string
+  temperature: number
+  max_tokens: number
+  enabled: boolean
+  last_modified_by: string | null
+  version: number
+  created_at: string
+  updated_at: string | null
+}
+
+export interface RedditFeedbackLog {
+  id: string
+  post_id: string
+  agent_name: string
+  feedback_type: string
+  from_track: string | null
+  to_track: string | null
+  original_score: number | null
+  original_action: string | null
+  feedback_notes: string | null
+  performed_by: string | null
+  created_at: string
+}
+
 export interface RedditSubredditSuggestion {
   id: string
   subreddit: string

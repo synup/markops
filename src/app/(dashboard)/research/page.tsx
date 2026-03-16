@@ -6,14 +6,16 @@ import { ResearchStatsHeader } from '@/components/features/research/ResearchStat
 import { ToolIdeasList } from '@/components/features/research/ToolIdeasList'
 import { ContentIdeasList } from '@/components/features/research/ContentIdeasList'
 import { FeedTab } from '@/components/features/research/FeedTab'
+import { AgentsTab } from '@/components/features/research/AgentsTab'
 import { useResearchStats } from '@/hooks/useRedditResearch'
 
-type Tab = 'tool_ideas' | 'content_ideas' | 'feed'
+type Tab = 'tool_ideas' | 'content_ideas' | 'feed' | 'agents'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'tool_ideas', label: 'Tool Ideas' },
   { key: 'content_ideas', label: 'Content Ideas' },
   { key: 'feed', label: 'Feed' },
+  { key: 'agents', label: 'Agents' },
 ]
 
 export default function ResearchPage() {
@@ -46,6 +48,7 @@ export default function ResearchPage() {
         {activeTab === 'tool_ideas' && <ToolIdeasList />}
         {activeTab === 'content_ideas' && <ContentIdeasList />}
         {activeTab === 'feed' && <FeedTab />}
+        {activeTab === 'agents' && <AgentsTab />}
       </div>
     </>
   )

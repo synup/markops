@@ -7,9 +7,10 @@ interface ContentIdeaRowProps {
   idea: ContentIdea
   onApprove: (postId: string) => void
   onReject: (postId: string) => void
+  onReclassify: (postId: string, scoreId: string) => void
 }
 
-export function ContentIdeaRow({ idea, onApprove, onReject }: ContentIdeaRowProps) {
+export function ContentIdeaRow({ idea, onApprove, onReject, onReclassify }: ContentIdeaRowProps) {
   const status = idea.latest_action?.action
   const isActed = status === 'approved' || status === 'rejected'
 
@@ -49,27 +50,31 @@ export function ContentIdeaRow({ idea, onApprove, onReject }: ContentIdeaRowProp
               </>
             )}
             {idea.content_cluster && (
-              <>
-                <span style={{ color: 'var(--text-dim)' }}>·</span>
-                <span
-                  className="rounded px-1.5 py-0.5 text-[10px] font-medium"
-                  style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}
-                >
-                  {idea.content_cluster.replace(/_/g, ' ')}
-                </span>
-              </>
+              <span
+                className="rounded px-1.5 py-0.5 text-[10px] font-medium"
+                style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}
+              >
+                {idea.content_cluster.replace(/_/g, ' ')}
+              </span>
             )}
             {idea.content_type && (
-              <>
-                <span style={{ color: 'var(--text-dim)' }}>·</span>
-                <span className="text-[10px]" style={{ color: 'var(--text-dim)' }}>
-                  {idea.content_type.replace(/_/g, ' ')}
-                </span>
-              </>
+              <span className="text-[10px]" style={{ color: 'var(--text-dim)' }}>
+                {idea.content_type.replace(/_/g, ' ')}
+              </span>
             )}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
+          {!isActed && (
+            <button
+              onClick={() => onReclassify(idea.post_id, idea.id)}
+              className="rounded px-2 py-1 text-[10px] font-medium transition-colors"
+              style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}
+              title="Move to Tool Ideas"
+            >
+              → Tools
+            </button>
+          )}
           {isActed ? (
             <span
               className="rounded px-2 py-1 text-xs font-medium"
@@ -101,7 +106,6 @@ export function ContentIdeaRow({ idea, onApprove, onReject }: ContentIdeaRowProp
         </div>
       </div>
 
-      {/* Score breakdown */}
       <div className="mt-3 grid grid-cols-3 gap-3 md:grid-cols-6">
         <ScoreBar label="Relevance" value={idea.relevance_score} max={10} />
         <ScoreBar label="Search Demand" value={idea.search_demand_score} max={10} />

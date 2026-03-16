@@ -10,7 +10,32 @@ import type {
   RedditContentAction,
   RedditFeedSource,
   RedditSubredditSuggestion,
+  RedditAgentConfig,
 } from '@/types'
+
+// ── Helper: log feedback ────────────────────────────
+
+async function logFeedback(supabase: ReturnType<typeof createClient>, params: {
+  post_id: string
+  agent_name: string
+  feedback_type: string
+  from_track?: string
+  to_track?: string
+  original_score?: number
+  original_action?: string
+  feedback_notes?: string
+}) {
+  const { data: { user } } = await supabase.auth.getUser()
+  await supabase.from('reddit_feedback_log').insert({
+    ...params,
+    from_track: params.from_track ?? null,
+    to_track: params.to_track ?? null,
+    original_score: params.original_score ?? null,
+    original_action: params.original_action ?? null,
+    feedback_notes: params.feedback_notes ?? null,
+    performed_by: user?.id ?? null,
+  })
+}
 
 // ── Tool Ideas ──────────────────────────────────────
 
@@ -25,7 +50,6 @@ export function useToolIdeas() {
   const supabase = createClient()
 
   const fetchIdeas = useCallback(async () => {
-    // Fetch scores with joined post data
     const { data: scores } = await supabase
       .from('reddit_tool_scores')
       .select('*, post:reddit_posts!post_id(*)')
@@ -34,7 +58,6 @@ export function useToolIdeas() {
 
     if (!scores || !scores.length) { setLoading(false); return }
 
-    // Fetch actions keyed by post_id
     const postIds = scores.map(s => s.post_id)
     const { data: actions } = await supabase
       .from('reddit_tool_actions')
@@ -59,17 +82,45 @@ export function useToolIdeas() {
 
   const actOnTool = async (postId: string, action: string, notes?: string) => {
     const { data: { user } } = await supabase.auth.getUser()
+    const idea = ideas.find(i => i.post_id === postId)
     const { error } = await supabase.from('reddit_tool_actions').insert({
       post_id: postId,
       action,
       notes: notes ?? null,
       acted_by: user?.id ?? null,
     })
-    if (!error) await fetchIdeas()
+    if (!error) {
+      await logFeedback(supabase, {
+        post_id: postId,
+        agent_name: 'tool_scorer',
+        feedback_type: action,
+        original_score: idea?.composite_score,
+        original_action: idea?.action_rationale ?? undefined,
+      })
+      await fetchIdeas()
+    }
     return !error
   }
 
-  return { ideas, loading, actOnTool, refresh: fetchIdeas }
+  const reclassifyToContent = async (postId: string, scoreId: string) => {
+    const idea = ideas.find(i => i.post_id === postId)
+    // Delete from tool scores
+    await supabase.from('reddit_tool_scores').delete().eq('id', scoreId)
+    // Update post category
+    await supabase.from('reddit_posts').update({ category: 'content_idea' }).eq('id', postId)
+    // Log feedback
+    await logFeedback(supabase, {
+      post_id: postId,
+      agent_name: 'tool_scorer',
+      feedback_type: 'reclassified',
+      from_track: 'tool',
+      to_track: 'content',
+      original_score: idea?.composite_score,
+    })
+    await fetchIdeas()
+  }
+
+  return { ideas, loading, actOnTool, reclassifyToContent, refresh: fetchIdeas }
 }
 
 // ── Content Ideas ───────────────────────────────────
@@ -117,17 +168,42 @@ export function useContentIdeas() {
 
   const actOnContent = async (postId: string, action: string, notes?: string) => {
     const { data: { user } } = await supabase.auth.getUser()
+    const idea = ideas.find(i => i.post_id === postId)
     const { error } = await supabase.from('reddit_content_actions').insert({
       post_id: postId,
       action,
       notes: notes ?? null,
       acted_by: user?.id ?? null,
     })
-    if (!error) await fetchIdeas()
+    if (!error) {
+      await logFeedback(supabase, {
+        post_id: postId,
+        agent_name: 'content_validator',
+        feedback_type: action,
+        original_score: idea?.composite_score,
+        original_action: idea?.action_rationale ?? undefined,
+      })
+      await fetchIdeas()
+    }
     return !error
   }
 
-  return { ideas, loading, actOnContent, refresh: fetchIdeas }
+  const reclassifyToTool = async (postId: string, scoreId: string) => {
+    const idea = ideas.find(i => i.post_id === postId)
+    await supabase.from('reddit_content_scores').delete().eq('id', scoreId)
+    await supabase.from('reddit_posts').update({ category: 'tool_request' }).eq('id', postId)
+    await logFeedback(supabase, {
+      post_id: postId,
+      agent_name: 'content_validator',
+      feedback_type: 'reclassified',
+      from_track: 'content',
+      to_track: 'tool',
+      original_score: idea?.composite_score,
+    })
+    await fetchIdeas()
+  }
+
+  return { ideas, loading, actOnContent, reclassifyToTool, refresh: fetchIdeas }
 }
 
 // ── Feed Sources ────────────────────────────────────
@@ -207,6 +283,62 @@ export function useSubredditSuggestions() {
   }
 
   return { suggestions, loading, updateStatus, refresh: fetchSuggestions }
+}
+
+// ── Agent Configs ───────────────────────────────────
+
+export function useAgentConfigs() {
+  const [agents, setAgents] = useState<RedditAgentConfig[]>([])
+  const [loading, setLoading] = useState(true)
+  const supabase = createClient()
+
+  const fetchAgents = useCallback(async () => {
+    const { data } = await supabase
+      .from('reddit_agent_configs')
+      .select('*')
+      .order('agent_name')
+    setAgents(data ?? [])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { fetchAgents() }, [fetchAgents])
+
+  const updatePrompt = async (id: string, systemPrompt: string) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    const agent = agents.find(a => a.id === id)
+    if (!agent) return false
+    const { error } = await supabase
+      .from('reddit_agent_configs')
+      .update({
+        system_prompt: systemPrompt,
+        version: agent.version + 1,
+        updated_at: new Date().toISOString(),
+        last_modified_by: user?.email ?? user?.id ?? null,
+      })
+      .eq('id', id)
+    if (!error) {
+      setAgents(prev => prev.map(a => a.id === id ? {
+        ...a,
+        system_prompt: systemPrompt,
+        version: a.version + 1,
+        updated_at: new Date().toISOString(),
+      } : a))
+    }
+    return !error
+  }
+
+  const toggleAgent = async (id: string, enabled: boolean) => {
+    const { error } = await supabase
+      .from('reddit_agent_configs')
+      .update({ enabled, updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (!error) {
+      setAgents(prev => prev.map(a => a.id === id ? { ...a, enabled } : a))
+    }
+    return !error
+  }
+
+  return { agents, loading, updatePrompt, toggleAgent, refresh: fetchAgents }
 }
 
 // ── Research Activity ───────────────────────────────

@@ -7,7 +7,7 @@ import { ToolIdeaRow } from './ToolIdeaRow'
 type Filter = 'all' | 'pending' | 'approved' | 'rejected'
 
 export function ToolIdeasList() {
-  const { ideas, loading, actOnTool } = useToolIdeas()
+  const { ideas, loading, actOnTool, reclassifyToContent } = useToolIdeas()
   const [filter, setFilter] = useState<Filter>('all')
 
   if (loading) {
@@ -41,6 +41,7 @@ export function ToolIdeasList() {
             idea={idea}
             onApprove={(postId) => actOnTool(postId, 'approved')}
             onReject={(postId) => actOnTool(postId, 'rejected')}
+            onReclassify={(postId, scoreId) => reclassifyToContent(postId, scoreId)}
           />
         ))}
       </div>

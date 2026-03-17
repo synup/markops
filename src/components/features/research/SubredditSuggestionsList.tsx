@@ -30,13 +30,30 @@ export function SubredditSuggestionsList() {
               opacity: s.status === 'pending' ? 1 : 0.6,
             }}
           >
-            <div>
-              <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>
-                r/{s.subreddit}
-              </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>
+                  r/{s.subreddit}
+                </span>
+                {s.relevance_score != null && (
+                  <span className="rounded px-1 py-0.5 text-[10px] font-medium" style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}>
+                    {s.relevance_score}/10
+                  </span>
+                )}
+                {s.post_frequency != null && (
+                  <span className="text-[10px]" style={{ color: 'var(--text-dim)' }}>
+                    ~{s.post_frequency} posts/wk
+                  </span>
+                )}
+              </div>
               {s.reason && (
-                <span className="ml-2 text-xs" style={{ color: 'var(--text-dim)' }}>
-                  — {s.reason}
+                <p className="mt-0.5 truncate text-[10px]" style={{ color: 'var(--text-dim)' }}>
+                  {s.reason}
+                </p>
+              )}
+              {s.discovered_via && (
+                <span className="text-[10px]" style={{ color: 'var(--text-dim)' }}>
+                  via {s.discovered_via}
                 </span>
               )}
             </div>

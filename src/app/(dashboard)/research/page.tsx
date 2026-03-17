@@ -8,6 +8,7 @@ import { ContentIdeasList } from '@/components/features/research/ContentIdeasLis
 import { FeedTab } from '@/components/features/research/FeedTab'
 import { AgentsTab } from '@/components/features/research/AgentsTab'
 import { ScoreNowButton } from '@/components/features/research/ScoreNowButton'
+import { BrandAlertBanner } from '@/components/features/research/BrandAlertBanner'
 import { useResearchStats } from '@/hooks/useRedditResearch'
 
 type Tab = 'tool_ideas' | 'content_ideas' | 'feed' | 'agents'
@@ -30,6 +31,7 @@ export default function ResearchPage() {
         <div />
         <ScoreNowButton />
       </div>
+      <BrandAlertBanner />
       <ResearchStatsHeader stats={stats} loading={loading} />
 
       {/* Tab bar */}

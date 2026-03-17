@@ -247,7 +247,16 @@ export interface RedditSubredditSuggestion {
   post_frequency: number | null
   relevance_score: number | null
   status: 'pending' | 'approved' | 'rejected'
+  reviewed_by: string | null
+  reviewed_at: string | null
   suggested_at: string
+}
+
+export interface RedditScoreRequest {
+  id: string
+  status: string
+  requested_by: string | null
+  created_at: string
 }
 
 // ── pSEO Content types ───────────────────────────────

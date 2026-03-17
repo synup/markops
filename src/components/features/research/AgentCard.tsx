@@ -1,5 +1,6 @@
 import type { RedditAgentConfig } from '@/types'
 import { FeedbackSummary } from './FeedbackSummary'
+import { PromptSuggestions } from './PromptSuggestions'
 
 interface AgentCardProps {
   agent: RedditAgentConfig
@@ -69,6 +70,7 @@ export function AgentCard({ agent, onToggle, onEdit }: AgentCardProps) {
         {agent.system_prompt.slice(0, 200)}{agent.system_prompt.length > 200 ? '...' : ''}
       </div>
       <FeedbackSummary agentName={agent.agent_name} />
+      <PromptSuggestions agentName={agent.agent_name} />
     </div>
   )
 }

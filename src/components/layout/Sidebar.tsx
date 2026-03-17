@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useBrandAlerts } from '@/hooks/useRedditResearch'
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/', icon: '◉' },
@@ -15,6 +16,7 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const { count: brandMentionCount } = useBrandAlerts()
 
   return (
     <aside
@@ -43,6 +45,7 @@ export function Sidebar() {
         {NAV_ITEMS.map(item => {
           const isActive = pathname === item.href ||
             (item.href !== '/' && pathname.startsWith(item.href))
+          const badge = item.href === '/research' && brandMentionCount > 0 ? brandMentionCount : 0
           return (
             <Link
               key={item.href}
@@ -55,6 +58,14 @@ export function Sidebar() {
             >
               <span className="w-4 text-center text-xs">{item.icon}</span>
               {item.label}
+              {badge > 0 && (
+                <span
+                  className="ml-auto flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none text-white"
+                  style={{ background: 'var(--red)' }}
+                >
+                  {badge}
+                </span>
+              )}
             </Link>
           )
         })}

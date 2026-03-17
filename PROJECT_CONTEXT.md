@@ -1,6 +1,6 @@
 # Marketing HQ — Project Context
 
-> Updated end of session 2026-03-16. This file is the single source of truth for continuing work on this project.
+> Updated end of session 2026-03-17. This file is the single source of truth for continuing work on this project.
 
 ## What This Is
 
@@ -40,10 +40,10 @@ markops/
 │   │   │       ├── audit/     ← AuditScoreHeader, AuditTriggerButton, SearchTermsPanel, SearchTermRow, ExpansionPanel, PausePanel, ActionLogPanel, ActionLogRow
 │   │   │       ├── campaigns/ ← CampaignTable
 │   │   │       ├── keywords/  ← NegativeKeywordRow, NegativeKeywordsList, KeywordExpansionRow
-│   │   │       ├── research/  ← 19 components: ToolIdeasList, ContentIdeasList, ToolIdeaRow, ContentIdeaRow, FeedTab, FeedSourceManager, FeedSourceRow, AddFeedForm, AgentsTab, AgentCard, AgentEditor, PipelineStatus, ResearchStatsHeader, ResearchActivityLog, SubredditSuggestionsList, ScoreBar, PostPreview, ReclassifyButton, ReclassifyToast
+│   │   │       ├── research/  ← 25 components: ToolIdeasList, ContentIdeasList, ToolIdeaRow, ContentIdeaRow, FeedTab, FeedSourceManager, FeedSourceRow, AddFeedForm, AgentsTab, AgentCard, AgentEditor, PipelineStatus, ResearchStatsHeader, ResearchActivityLog, SubredditSuggestionsList, ScoreBar, PostPreview, ReclassifyButton, ReclassifyToast, ScoreNowButton, ToolSpecViewer, ContentBriefViewer, FeedbackSummary, ExportCsvButton, PromptSuggestions, BrandAlertBanner
 │   │   │       ├── schedule/  ← ScheduleDisplay, ScheduleForm, TimezoneSelect
 │   │   │       └── users/     ← UserManagement, UserRow
-│   │   ├── hooks/             ← useAuth, useAuditData, useAuditTrigger, useAuditSchedule, useCampaigns, useSearchTerms, useUsers, useKeywordActions, useRedditResearch (7 sub-hooks)
+│   │   ├── hooks/             ← useAuth, useAuditData, useAuditTrigger, useAuditSchedule, useCampaigns, useSearchTerms, useUsers, useKeywordActions, useRedditResearch (10 sub-hooks)
 │   │   ├── lib/supabase/      ← Supabase client configs (browser, server, admin)
 │   │   └── types/             ← TypeScript interfaces
 │   ├── supabase/
@@ -88,7 +88,7 @@ markops/
 - **Font**: System fonts (-apple-system, Inter)
 - **Component rule**: No component > 150 lines. UI separated from logic via hooks.
 
-## Database Tables (22 total, 9 migrations)
+## Database Tables (23 total, 9 migrations)
 
 | Table | Purpose | Written By |
 |-------|---------|-----------|
@@ -114,6 +114,7 @@ markops/
 | `reddit_subreddit_suggestions` | AI-suggested subreddits (status: suggested→approved/rejected) | Droplet → Dashboard |
 | `reddit_agent_configs` | Agent system prompts with versioning (agent_name, agent_role, model, enabled) | Dashboard users |
 | `reddit_feedback_log` | Tracks all approve/reject/reclassify actions with metadata | Dashboard (auto-logged) |
+| `reddit_score_requests` | On-demand scoring triggers (pending→completed, polled by droplet) | Dashboard → Droplet |
 
 ## Approval Workflow
 
@@ -153,7 +154,8 @@ markops/
 - **Deployed scripts (Reddit)**: `reddit_rss_poller.py`, `score_posts.py`, `generate_tool_specs.py`, `generate_promotions.py`, `generate_briefs.py` (in `/opt/reddit-research-tool/`)
 - **Cron (Ads)**: `*/5 * * * *` polls for on-demand audits + scheduled audits + push-to-ads requests
 - **Cron (Ads daily 2am)**: `fetch_campaign_metrics.py --days 1` (sources .env, logs to /var/log/campaign_metrics.log)
-- **Cron (Reddit)**: 7 jobs — RSS poller (every 30min), score_posts (hourly), generate_tool_specs (every 2h), generate_promotions (every 4h), generate_briefs (every 4h), subreddit_suggester (daily), feed_enricher (every 6h)
+- **Cron (Reddit)**: 8 jobs — RSS poller (every 30min), score_posts (hourly), generate_tool_specs (every 2h), generate_promotions (every 4h), generate_briefs (every 4h), subreddit_suggester (daily), feed_enricher (every 6h), poll_score_requests (*/5)
+- **All 6 Reddit scripts read agent configs from Supabase** (`reddit_agent_configs` table) for system prompts, model, temperature
 - **Swap**: 1GB swap file added (droplet only has 1GB RAM)
 - **Env vars in `/opt/google-ads-auditor/.env`**: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_ADS_CUSTOMER_ID, GOOGLE_ADS_LOGIN_CUSTOMER_ID, plus Google Ads OAuth credentials
 - **Google Ads account**: Synup USA - Agency (185 campaigns, 36,896 keywords)
@@ -163,10 +165,10 @@ markops/
 
 ### Completed
 - Next.js project scaffolded with all core files
-- Supabase database with 22 tables (migrations 001-008b all run)
+- Supabase database with 23 tables (migrations 001-008b all run, reddit_score_requests created manually)
 - Google OAuth working (tested — login successful on both localhost and Vercel)
 - Dashboard pages: Home, Audit (8 tabs), Campaigns, Keywords, Research (4 tabs), Settings
-- Data hooks: useAuth, useAuditData, useAuditTrigger, useAuditSchedule, useCampaigns, useSearchTerms, useUsers, useKeywordActions, usePushToAds, useChangelog, useRedditResearch (7 sub-hooks)
+- Data hooks: useAuth, useAuditData, useAuditTrigger, useAuditSchedule, useCampaigns, useSearchTerms, useUsers, useKeywordActions, usePushToAds, useChangelog, useRedditResearch (10 sub-hooks)
 - Push-to-Supabase script with search terms support (key mismatch fixed)
 - On-demand audit trigger (dashboard → audit_requests → droplet polls)
 - Scheduler UI (frequency/day/time/timezone picker on Settings page)
@@ -210,26 +212,31 @@ markops/
 ### Reddit Research Page (2026-03-16)
 - **Research page** at `/research` with 4 tabs: Tool Ideas, Content Ideas, Feed, Agents
 - **"Reddit" in sidebar** navigation (between Keywords and Settings, icon: ◈)
-- **useRedditResearch.ts** hook (~480 lines) with 7 sub-hooks:
+- **useRedditResearch.ts** hook (~620 lines) with 10 sub-hooks:
+  - `useScoreRequest()` — insert into reddit_score_requests, poll until completed
+  - `useBrandAlerts()` — unreviewed brand_mention posts (used by sidebar badge + alert banner)
   - `useToolIdeas()` — fetches tool scores with joined posts, approve/reject, reclassify to content with undo
   - `useContentIdeas()` — fetches content scores with joined posts, approve/reject, reclassify to tool with undo
   - `useFeedSources()` — CRUD on reddit_feed_sources, add/remove/toggle feeds
-  - `useSubredditSuggestions()` — read/approve/reject AI-suggested subreddits
+  - `useSubredditSuggestions()` — read/approve/reject AI-suggested subreddits, auto-add to feeds on approve
   - `useAgentConfigs()` — read agents, edit system prompts (version increment), enable/disable toggle
+  - `useFeedbackSummary(agent_name)` — approval/rejection counts and rate per agent
+  - `usePromptSuggestions(agent_name)` — pattern analysis on feedback for prompt improvement suggestions
   - `useResearchActivity()` — joins tool+content actions with post titles for activity log
   - `useResearchStats()` — count queries across all tables for stats header
-- **19 components** (all under 150 lines) in `src/components/features/research/`:
-  - Tool/Content Ideas: `ToolIdeasList`, `ContentIdeasList`, `ToolIdeaRow`, `ContentIdeaRow` — filter bar (All/Pending/Approved/Rejected with counts), score breakdowns (6 ScoreBars), approve/reject buttons
+- **25 components** (all under 150 lines) in `src/components/features/research/`:
+  - Tool/Content Ideas: `ToolIdeasList`, `ContentIdeasList`, `ToolIdeaRow`, `ContentIdeaRow` — filter bar (All/Pending/Approved/Rejected with counts), score breakdowns (6 ScoreBars), approve/reject buttons, CSV export
+  - Spec/Brief Viewers: `ToolSpecViewer` (modal for review_ready specs), `ContentBriefViewer` (modal with collapsible channels for brief_complete briefs)
   - Feed Management: `FeedTab`, `FeedSourceManager`, `FeedSourceRow`, `AddFeedForm` — CRUD for subreddit + keyword_search feeds, enable/disable toggle, post counts
-  - Agents: `AgentsTab`, `AgentCard`, `AgentEditor` — view/edit agent system prompts with version tracking, enable/disable toggle
+  - Agents: `AgentsTab`, `AgentCard`, `AgentEditor`, `FeedbackSummary`, `PromptSuggestions` — view/edit agent system prompts with version tracking, feedback analysis, prompt improvement suggestions
   - Pipeline: `PipelineStatus` — visual 6-agent pipeline (Tool Track + Content Track)
-  - Stats: `ResearchStatsHeader` — 6 stat cards (Reddit Posts, Tool/Content Ideas, Approved counts, Active Feeds)
-  - Shared: `ScoreBar`, `PostPreview` (summary + URL + copy button), `ReclassifyButton` (with inline confirm), `ReclassifyToast` (10s countdown undo banner)
-  - Activity: `ResearchActivityLog`, `SubredditSuggestionsList`
+  - Stats/Alerts: `ResearchStatsHeader` (6 stat cards), `ScoreNowButton`, `BrandAlertBanner` (yellow warning for unreviewed brand mentions)
+  - Shared: `ScoreBar`, `PostPreview` (summary + URL + copy button), `ReclassifyButton` (with inline confirm), `ReclassifyToast` (10s countdown undo banner), `ExportCsvButton` (client-side CSV generation)
+  - Activity: `ResearchActivityLog`, `SubredditSuggestionsList` (with relevance_score, post_frequency, discovered_via)
 - **Reclassify system**: Move ideas between Tool↔Content tracks with confirmation dialog, undo within 10 seconds
 - **Feedback logging**: All approve/reject/reclassify actions logged to `reddit_feedback_log` table
 - **Post preview**: Shows summary/selftext (first 200 chars) + Reddit URL with clipboard copy button
-- **9 Reddit types** in `src/types/index.ts`: RedditFeedSource, RedditPost, RedditToolScore, RedditContentScore, RedditToolAction, RedditContentAction, RedditSubredditSuggestion, RedditAgentConfig, RedditFeedbackLog
+- **10 Reddit types** in `src/types/index.ts`: RedditFeedSource, RedditPost, RedditToolScore, RedditContentScore, RedditToolAction, RedditContentAction, RedditSubredditSuggestion, RedditAgentConfig, RedditFeedbackLog, RedditScoreRequest
 - **Migration SQL files** for version control: `008_reddit_research.sql` (7 tables + RLS + indexes), `008b_seed_reddit_feeds.sql` (30 seed feeds)
 - **PostgREST joins** using FK hints: `reddit_posts!post_id(*)` for score→post joins
 
@@ -298,6 +305,19 @@ markops/
 10. Added post content preview with summary truncation + URL display with clipboard copy button
 11. Created migration SQL files (008, 008b) for version control
 12. Updated PROJECT_CONTEXT.md with all Reddit Research work
+
+### 2026-03-17 — Reddit Research Enhancements Session
+1. "Score Now" button: inserts into `reddit_score_requests`, polls until done, shows "Scoring..." state
+2. Tool Spec Viewer: modal parses JSON specs on `review_ready` actions — renders tool name, features, file structure, code outline, build instructions, Claude Code prompt
+3. Content Brief Viewer: modal with collapsible channel sections on `brief_complete` actions — topic, angle, audience, channels, timeline, metrics
+4. Feedback Summary per agent: approval/rejection counts, rate bar (color-coded), last 5 entries on each AgentCard
+5. Subreddit Suggestions fix: now shows relevance_score, post_frequency, discovered_via; auto-adds to reddit_feed_sources on approve; sets reviewed_by/reviewed_at
+6. Brand Alert Banner: yellow warning when unreviewed brand_mention posts exist, expandable list with links
+7. CSV Export: client-side export on Tool Ideas and Content Ideas tabs (12/14 columns respectively)
+8. Prompt Suggestions: pattern analysis on feedback data — rejection rates, per-subreddit performance, score differentiation, reclassification patterns
+9. Sidebar notification badge: red count badge on "Reddit" nav item for unreviewed brand mentions
+10. Added RedditScoreRequest type and reddit_score_requests to table list
+11. Updated PROJECT_CONTEXT.md with all session work
 
 ## Rules for Future Sessions
 1. **Components < 150 lines** — split if exceeding

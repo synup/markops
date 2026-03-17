@@ -86,6 +86,54 @@ export function useScoreRequest() {
   return { pending, requestScore }
 }
 
+// ── Brand Alerts ────────────────────────────────────
+
+export interface BrandMention {
+  id: string
+  title: string
+  subreddit: string
+  url: string
+  upvotes: number
+  published_at: string | null
+}
+
+export function useBrandAlerts() {
+  const [mentions, setMentions] = useState<BrandMention[]>([])
+  const [loading, setLoading] = useState(true)
+  const supabase = createClient()
+
+  useEffect(() => {
+    async function fetch() {
+      // Get brand mention posts
+      const { data: posts } = await supabase
+        .from('reddit_posts')
+        .select('id, title, subreddit, url, upvotes, published_at')
+        .eq('category', 'brand_mention')
+        .order('published_at', { ascending: false })
+        .limit(50)
+
+      if (!posts || !posts.length) { setMentions([]); setLoading(false); return }
+
+      // Get already-reviewed post IDs
+      const postIds = posts.map(p => p.id)
+      const [{ data: toolActs }, { data: contentActs }] = await Promise.all([
+        supabase.from('reddit_tool_actions').select('post_id').in('post_id', postIds),
+        supabase.from('reddit_content_actions').select('post_id').in('post_id', postIds),
+      ])
+
+      const reviewed = new Set<string>()
+      toolActs?.forEach(a => reviewed.add(a.post_id))
+      contentActs?.forEach(a => reviewed.add(a.post_id))
+
+      setMentions(posts.filter(p => !reviewed.has(p.id)))
+      setLoading(false)
+    }
+    fetch()
+  }, [])
+
+  return { mentions, count: mentions.length, loading }
+}
+
 // ── Tool Ideas ──────────────────────────────────────
 
 export type ToolIdea = RedditToolScore & {
@@ -351,14 +399,26 @@ export function useSubredditSuggestions() {
   useEffect(() => { fetchSuggestions() }, [fetchSuggestions])
 
   const updateStatus = async (id: string, status: 'approved' | 'rejected') => {
+    const { data: { user } } = await supabase.auth.getUser()
+    const reviewedBy = user?.email ?? user?.id ?? null
     const { error } = await supabase
       .from('reddit_subreddit_suggestions')
-      .update({ status })
+      .update({ status, reviewed_by: reviewedBy, reviewed_at: new Date().toISOString() })
       .eq('id', id)
-    if (!error) {
-      setSuggestions(prev => prev.map(s => s.id === id ? { ...s, status } : s))
+    if (error) return false
+    if (status === 'approved') {
+      const suggestion = suggestions.find(s => s.id === id)
+      if (suggestion) {
+        await supabase.from('reddit_feed_sources').insert({
+          feed_type: 'subreddit',
+          value: suggestion.subreddit,
+          label: suggestion.subreddit,
+          notes: `Auto-added from suggestion: ${suggestion.reason ?? ''}`.trim(),
+        })
+      }
     }
-    return !error
+    setSuggestions(prev => prev.map(s => s.id === id ? { ...s, status, reviewed_by: reviewedBy, reviewed_at: new Date().toISOString() } : s))
+    return true
   }
 
   return { suggestions, loading, updateStatus, refresh: fetchSuggestions }
@@ -467,6 +527,40 @@ export function useFeedbackSummary(agentName: string) {
   }, [agentName])
 
   return { data, loading }
+}
+
+// ── Prompt Suggestions ──────────────────────────────
+
+export interface FeedbackRow {
+  id: string
+  feedback_type: string
+  original_score: number | null
+  from_track: string | null
+  post: { subreddit: string; category: string | null } | null
+}
+
+export function usePromptSuggestions(agentName: string) {
+  const [rows, setRows] = useState<FeedbackRow[]>([])
+  const [loading, setLoading] = useState(false)
+  const supabase = createClient()
+
+  const analyze = useCallback(async () => {
+    setLoading(true)
+    const { data } = await supabase
+      .from('reddit_feedback_log')
+      .select('id, feedback_type, original_score, from_track, post:reddit_posts!post_id(subreddit, category)')
+      .eq('agent_name', agentName)
+      .in('feedback_type', ['approved', 'rejected'])
+      .order('created_at', { ascending: false })
+      .limit(20)
+    setRows((data ?? []).map(r => ({
+      ...r,
+      post: r.post as unknown as FeedbackRow['post'],
+    })))
+    setLoading(false)
+  }, [agentName])
+
+  return { rows, loading, analyze }
 }
 
 // ── Research Activity ───────────────────────────────

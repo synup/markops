@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useToolIdeas } from '@/hooks/useRedditResearch'
 import { ToolIdeaRow } from './ToolIdeaRow'
 import { ReclassifyToast } from './ReclassifyToast'
+import { ExportCsvButton } from './ExportCsvButton'
 
 type Filter = 'all' | 'pending' | 'approved' | 'rejected'
 
@@ -37,7 +38,10 @@ export function ToolIdeasList() {
       {undoData && (
         <ReclassifyToast trackName="Content Ideas" onUndo={undoReclassify} onDismiss={clearUndo} />
       )}
-      <FilterBar filter={filter} onFilter={setFilter} counts={counts} />
+      <div className="mb-3 flex items-center justify-between">
+        <FilterBar filter={filter} onFilter={setFilter} counts={counts} />
+        <ExportCsvButton type="tool" ideas={ideas} />
+      </div>
       <div className="flex flex-col gap-2">
         {filtered.map(idea => (
           <ToolIdeaRow
@@ -66,7 +70,7 @@ function FilterBar({ filter, onFilter, counts }: {
   ]
 
   return (
-    <div className="mb-3 flex gap-1">
+    <div className="flex gap-1">
       {filters.map(f => (
         <button
           key={f.key}

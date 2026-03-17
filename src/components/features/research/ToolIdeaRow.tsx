@@ -17,7 +17,7 @@ interface ToolIdeaRowProps {
 export function ToolIdeaRow({ idea, onApprove, onReject, onReclassify }: ToolIdeaRowProps) {
   const [showSpec, setShowSpec] = useState(false)
   const status = idea.latest_action?.action
-  const isActed = status === 'approved' || status === 'rejected' || status === 'review_ready'
+  const isActed = !!status
   const hasSpec = status === 'review_ready' && idea.latest_action?.notes
 
   return (
@@ -84,6 +84,10 @@ export function ToolIdeaRow({ idea, onApprove, onReject, onReclassify }: ToolIde
                 <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--green-muted)', color: 'var(--green)' }}>Awaiting Spec</span>
               ) : status === 'rejected' ? (
                 <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--red-muted)', color: 'var(--red)' }}>Rejected</span>
+              ) : status === 'in_progress' ? (
+                <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--yellow-muted)', color: 'var(--yellow)' }}>In Progress</span>
+              ) : status === 'deployed' ? (
+                <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--green-muted)', color: 'var(--green)' }}>Deployed</span>
               ) : (
                 <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}>{status}</span>
               )}

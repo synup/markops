@@ -17,7 +17,7 @@ interface ContentIdeaRowProps {
 export function ContentIdeaRow({ idea, onApprove, onReject, onReclassify }: ContentIdeaRowProps) {
   const [showBrief, setShowBrief] = useState(false)
   const status = idea.latest_action?.action
-  const isActed = status === 'approved' || status === 'rejected' || status === 'brief_complete'
+  const isActed = !!status
   const hasBrief = status === 'brief_complete' && idea.latest_action?.notes
 
   return (
@@ -85,6 +85,8 @@ export function ContentIdeaRow({ idea, onApprove, onReject, onReclassify }: Cont
                 <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--green-muted)', color: 'var(--green)' }}>Awaiting Brief</span>
               ) : status === 'rejected' ? (
                 <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--red-muted)', color: 'var(--red)' }}>Rejected</span>
+              ) : status === 'published' ? (
+                <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--green-muted)', color: 'var(--green)' }}>Published</span>
               ) : (
                 <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}>{status}</span>
               )}

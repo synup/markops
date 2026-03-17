@@ -21,7 +21,8 @@ export function ContentIdeasList() {
     return <div className="py-8 text-center text-sm" style={{ color: 'var(--text-dim)' }}>No content ideas scored yet.</div>
   }
 
-  const isApproved = (a?: string | null) => a === 'approved' || a === 'brief_complete'
+  const excludedFromApproved = new Set(['rejected', 'archived'])
+  const isApproved = (a?: string | null) => !!a && !excludedFromApproved.has(a)
 
   const filtered = ideas.filter(idea => {
     if (filter === 'all') return true

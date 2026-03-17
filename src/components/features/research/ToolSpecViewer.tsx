@@ -21,7 +21,8 @@ interface ToolSpecViewerProps {
 export function ToolSpecViewer({ notes, onClose }: ToolSpecViewerProps) {
   let spec: ToolSpec
   try {
-    spec = JSON.parse(notes)
+    const parsed = JSON.parse(notes)
+    spec = (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : { description: notes }
   } catch {
     spec = { description: notes }
   }

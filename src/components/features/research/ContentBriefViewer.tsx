@@ -28,7 +28,8 @@ interface ContentBriefViewerProps {
 export function ContentBriefViewer({ notes, onClose }: ContentBriefViewerProps) {
   let brief: ContentBrief
   try {
-    brief = JSON.parse(notes)
+    const parsed = JSON.parse(notes)
+    brief = (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : { topic: notes }
   } catch {
     brief = { topic: notes }
   }

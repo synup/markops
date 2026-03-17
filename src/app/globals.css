@@ -32,8 +32,8 @@ body {
 }
 
 /* pSEO card hover */
-.pseo-card-hover { transition: background 0.15s ease; }
-.pseo-card-hover:hover { background: var(--surface-2) !important; }
+.pseo-card-hover { transition: background 0.15s ease, border-color 0.15s ease; }
+.pseo-card-hover:hover { background: rgba(124, 58, 237, 0.25) !important; border-color: rgba(124, 58, 237, 0.5) !important; }
 
 /* pSEO table row hover */
 .pseo-row { transition: background 0.15s ease; }

@@ -215,7 +215,12 @@ export interface PseoAnalytics {
   indexingSuccessRate: number
 }
 
-export type PseoDateRange = '7d' | '14d' | '1m' | 'all'
+export type PseoDateRange = '7d' | '14d' | '1m' | 'all' | 'custom'
+
+export interface PseoCustomRange {
+  start: string  // YYYY-MM-DD
+  end: string    // YYYY-MM-DD
+}
 
 export type PseoSortField = keyof PseoArticle
 

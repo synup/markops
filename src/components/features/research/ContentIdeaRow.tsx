@@ -5,7 +5,7 @@ import type { ContentIdea } from '@/hooks/useRedditResearch'
 import { ScoreBar } from './ScoreBar'
 import { PostPreview } from './PostPreview'
 import { ReclassifyButton } from './ReclassifyButton'
-import { ContentBriefViewer } from './ContentBriefViewer'
+import { ContentBriefViewer, downloadBriefMarkdown } from './ContentBriefViewer'
 
 interface ContentIdeaRowProps {
   idea: ContentIdea
@@ -69,14 +69,7 @@ export function ContentIdeaRow({ idea, onApprove, onReject, onReclassify }: Cont
                   <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}>Brief Ready</span>
                   <button onClick={() => setShowBrief(true)} className="btn-research rounded px-2.5 py-1.5 text-xs font-semibold" style={{ background: 'var(--brand)', color: '#fff' }}>View Brief</button>
                   <button
-                    onClick={() => {
-                      const brief = (() => { try { return JSON.parse(idea.latest_action!.notes!) } catch { return { notes: idea.latest_action!.notes } } })()
-                      const slug = (brief.topic || 'brief').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-                      const blob = new Blob([JSON.stringify(brief, null, 2)], { type: 'application/json' })
-                      const url = URL.createObjectURL(blob)
-                      const a = document.createElement('a'); a.href = url; a.download = `${slug}-brief.json`; a.click()
-                      URL.revokeObjectURL(url)
-                    }}
+                    onClick={() => downloadBriefMarkdown(idea.latest_action!.notes!)}
                     className="btn-research rounded px-2 py-1 text-[10px] font-medium"
                     style={{ background: 'var(--surface-2)', color: 'var(--brand)', border: '1px solid var(--brand-border)' }}
                   >Download Brief</button>

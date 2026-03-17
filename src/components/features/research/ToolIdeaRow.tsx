@@ -5,7 +5,7 @@ import type { ToolIdea } from '@/hooks/useRedditResearch'
 import { ScoreBar } from './ScoreBar'
 import { PostPreview } from './PostPreview'
 import { ReclassifyButton } from './ReclassifyButton'
-import { ToolSpecViewer } from './ToolSpecViewer'
+import { ToolSpecViewer, downloadSpecMarkdown } from './ToolSpecViewer'
 
 interface ToolIdeaRowProps {
   idea: ToolIdea
@@ -68,14 +68,7 @@ export function ToolIdeaRow({ idea, onApprove, onReject, onReclassify }: ToolIde
                   <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}>Spec Ready</span>
                   <button onClick={() => setShowSpec(true)} className="btn-research rounded px-2.5 py-1.5 text-xs font-semibold" style={{ background: 'var(--brand)', color: '#fff' }}>View Spec</button>
                   <button
-                    onClick={() => {
-                      const spec = (() => { try { return JSON.parse(idea.latest_action!.notes!) } catch { return { notes: idea.latest_action!.notes } } })()
-                      const slug = (spec.tool_name || 'tool').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-                      const blob = new Blob([JSON.stringify(spec, null, 2)], { type: 'application/json' })
-                      const url = URL.createObjectURL(blob)
-                      const a = document.createElement('a'); a.href = url; a.download = `${slug}-spec.json`; a.click()
-                      URL.revokeObjectURL(url)
-                    }}
+                    onClick={() => downloadSpecMarkdown(idea.latest_action!.notes!)}
                     className="btn-research rounded px-2 py-1 text-[10px] font-medium"
                     style={{ background: 'var(--surface-2)', color: 'var(--brand)', border: '1px solid var(--brand-border)' }}
                   >Download Spec</button>

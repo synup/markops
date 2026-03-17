@@ -24,7 +24,7 @@ function formatDate(dateStr: string): string {
 
 export function PseoTableRow({ article, expanded }: PseoTableRowProps) {
   return (
-    <tr className="border-t" style={{ borderColor: 'var(--border)' }}>
+    <tr className="pseo-row border-t" style={{ borderColor: 'var(--border)' }}>
       <td className="whitespace-nowrap px-3 py-2 text-xs" style={{ color: 'var(--text)' }}>
         {article.site}
       </td>

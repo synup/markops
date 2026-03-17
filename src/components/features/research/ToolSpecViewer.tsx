@@ -33,9 +33,27 @@ export function ToolSpecViewer({ notes, onClose }: ToolSpecViewerProps) {
         style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}
       >
         <div className="flex items-center justify-between border-b px-5 py-3" style={{ borderColor: 'var(--border)' }}>
-          <h2 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
-            {spec.tool_name || 'Tool Spec'}
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
+              {spec.tool_name || 'Tool Spec'}
+            </h2>
+            <button
+              onClick={() => {
+                const slug = (spec.tool_name || 'tool').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+                const blob = new Blob([JSON.stringify(spec, null, 2)], { type: 'application/json' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `${slug}-spec.json`
+                a.click()
+                URL.revokeObjectURL(url)
+              }}
+              className="btn-research rounded px-2 py-0.5 text-[10px] font-medium"
+              style={{ background: 'var(--surface-2)', color: 'var(--brand)', border: '1px solid var(--brand-border)' }}
+            >
+              Download Spec
+            </button>
+          </div>
           <button onClick={onClose} className="text-xs" style={{ color: 'var(--text-muted)' }}>✕ Close</button>
         </div>
         <div className="overflow-y-auto p-5">

@@ -59,7 +59,7 @@ export async function fetchPseoData(): Promise<PseoArticle[]> {
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: 'Sheet1',
+    range: 'Dashboard',
   })
 
   const rows = response.data.values || []

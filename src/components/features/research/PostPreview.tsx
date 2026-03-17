@@ -10,7 +10,8 @@ interface PostPreviewProps {
 export function PostPreview({ post }: PostPreviewProps) {
   const [copied, setCopied] = useState(false)
   const [expanded, setExpanded] = useState(false)
-  const fullText = post.summary || post.selftext
+  const rawText = post.summary || post.selftext
+  const fullText = rawText ? rawText.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'").trim() : null
   const isLong = fullText ? fullText.length > 200 : false
   const displayText = expanded ? fullText : (fullText ? (isLong ? fullText.slice(0, 200) + '...' : fullText) : null)
 

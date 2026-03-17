@@ -67,7 +67,7 @@ export function AddFeedForm({ onAdd }: AddFeedFormProps) {
         <button
           onClick={handleSubmit}
           disabled={adding || !value.trim()}
-          className="rounded px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-50"
+          className="btn-research rounded px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
           style={{ background: 'var(--brand)' }}
         >
           {adding ? 'Adding...' : 'Add'}

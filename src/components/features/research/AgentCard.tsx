@@ -46,7 +46,7 @@ export function AgentCard({ agent, onToggle, onEdit }: AgentCardProps) {
         <div className="flex items-center gap-2">
           <button
             onClick={() => onToggle(agent.id, !agent.enabled)}
-            className="flex h-5 w-5 items-center justify-center rounded text-[10px]"
+            className="btn-research flex h-5 w-5 items-center justify-center rounded text-[10px]"
             style={{
               background: agent.enabled ? 'var(--green)' : 'var(--surface-3)',
               color: agent.enabled ? '#fff' : 'var(--text-dim)',
@@ -56,7 +56,7 @@ export function AgentCard({ agent, onToggle, onEdit }: AgentCardProps) {
           </button>
           <button
             onClick={() => onEdit(agent)}
-            className="rounded px-2.5 py-1 text-xs font-medium transition-colors"
+            className="btn-research rounded px-2.5 py-1 text-xs font-medium"
             style={{ background: 'var(--surface-2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
           >
             Edit Prompt

@@ -25,7 +25,7 @@ export function FeedSourceManager() {
         </span>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="rounded px-2.5 py-1 text-xs font-medium text-white"
+          className="btn-research rounded px-2.5 py-1 text-xs font-medium text-white"
           style={{ background: 'var(--brand)' }}
         >
           {showForm ? 'Cancel' : '+ Add Feed'}

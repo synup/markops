@@ -69,14 +69,14 @@ export function ContentIdeaRow({ idea, onApprove, onReject, onReclassify }: Cont
                 color: status === 'approved' ? 'var(--green)' : status === 'rejected' ? 'var(--red)' : 'var(--blue)',
               }}>{status === 'brief_complete' ? 'Brief Ready' : status}</span>
               {hasBrief && (
-                <button onClick={() => setShowBrief(true)} className="rounded px-2 py-1 text-[10px] font-medium" style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}>View Brief</button>
+                <button onClick={() => setShowBrief(true)} className="btn-research rounded px-2 py-1 text-[10px] font-medium" style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}>View Brief</button>
               )}
             </div>
           ) : (
             <>
               <div className="flex items-center gap-1.5">
-                <button onClick={() => onApprove(idea.post_id)} className="rounded px-2.5 py-1 text-xs font-medium" style={{ background: 'var(--green-muted)', color: 'var(--green)' }}>Approve</button>
-                <button onClick={() => onReject(idea.post_id)} className="rounded px-2.5 py-1 text-xs font-medium" style={{ background: 'var(--red-muted)', color: 'var(--red)' }}>Reject</button>
+                <button onClick={() => onApprove(idea.post_id)} className="btn-research rounded px-2.5 py-1 text-xs font-medium" style={{ background: 'var(--green-muted)', color: 'var(--green)' }}>Approve</button>
+                <button onClick={() => onReject(idea.post_id)} className="btn-research rounded px-2.5 py-1 text-xs font-medium" style={{ background: 'var(--red-muted)', color: 'var(--red)' }}>Reject</button>
               </div>
               <ReclassifyButton targetTrack="Tools" onConfirm={() => onReclassify(idea.post_id, idea.id)} />
             </>

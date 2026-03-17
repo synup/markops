@@ -36,7 +36,7 @@ export function ExportCsvButton({ type, ideas }: ExportCsvButtonProps) {
     <button
       onClick={handleExport}
       disabled={!ideas.length}
-      className="rounded px-2.5 py-1 text-xs font-medium transition-colors"
+      className="btn-research rounded px-2.5 py-1 text-xs font-medium"
       style={{
         background: 'var(--surface-2)',
         color: ideas.length ? 'var(--text-muted)' : 'var(--text-dim)',

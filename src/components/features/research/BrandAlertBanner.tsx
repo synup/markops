@@ -20,7 +20,7 @@ export function BrandAlertBanner() {
         </span>
         <button
           onClick={() => setExpanded(!expanded)}
-          className="rounded px-2 py-0.5 text-[10px] font-medium"
+          className="btn-research rounded px-2 py-0.5 text-[10px] font-medium"
           style={{ background: 'var(--surface)', color: 'var(--yellow, #F59E0B)', border: '1px solid var(--border)' }}
         >
           {expanded ? 'Hide' : 'View'}

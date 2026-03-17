@@ -18,14 +18,14 @@ export function ReclassifyButton({ targetTrack, onConfirm }: ReclassifyButtonPro
         </span>
         <button
           onClick={() => { onConfirm(); setConfirming(false) }}
-          className="rounded px-2 py-0.5 text-[10px] font-medium"
+          className="btn-research rounded px-2 py-0.5 text-[10px] font-medium"
           style={{ background: 'var(--green-muted)', color: 'var(--green)' }}
         >
           Confirm
         </button>
         <button
           onClick={() => setConfirming(false)}
-          className="rounded px-2 py-0.5 text-[10px] font-medium"
+          className="btn-research rounded px-2 py-0.5 text-[10px] font-medium"
           style={{ color: 'var(--text-dim)' }}
         >
           Cancel
@@ -37,8 +37,10 @@ export function ReclassifyButton({ targetTrack, onConfirm }: ReclassifyButtonPro
   return (
     <button
       onClick={() => setConfirming(true)}
-      className="rounded px-2 py-1 text-[10px] font-medium opacity-40 transition-opacity hover:opacity-100"
-      style={{ color: 'var(--text-dim)', border: '1px solid var(--border)' }}
+      className="btn-research rounded px-2 py-1 text-[10px] font-medium"
+      style={{ color: '#9CA3AF', border: '1px solid #4B5563' }}
+      onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'var(--brand)' }}
+      onMouseLeave={e => { e.currentTarget.style.color = '#9CA3AF'; e.currentTarget.style.borderColor = '#4B5563' }}
       title={`Move this to ${targetTrack} Ideas`}
     >
       → {targetTrack}

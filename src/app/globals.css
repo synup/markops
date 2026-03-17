@@ -31,6 +31,18 @@ body {
   line-height: 1.5;
 }
 
+/* Research button hover/click effects */
+.btn-research {
+  transition: all 150ms ease;
+}
+.btn-research:hover:not(:disabled) {
+  filter: brightness(1.2);
+  transform: scale(1.02);
+}
+.btn-research:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
 /* pSEO card hover */
 .pseo-card-hover { transition: background 0.15s ease, border-color 0.15s ease; }
 .pseo-card-hover:hover { background: rgba(124, 58, 237, 0.25) !important; border-color: rgba(124, 58, 237, 0.5) !important; }

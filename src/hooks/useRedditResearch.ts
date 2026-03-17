@@ -179,15 +179,20 @@ export function useToolIdeas() {
   useEffect(() => { fetchIdeas() }, [fetchIdeas])
 
   const actOnTool = async (postId: string, action: string, notes?: string) => {
-    const { data: { user } } = await supabase.auth.getUser()
-    const idea = ideas.find(i => i.post_id === postId)
-    const { error } = await supabase.from('reddit_tool_actions').insert({
-      post_id: postId,
-      action,
-      notes: notes ?? null,
-      acted_by: user?.id ?? null,
-    })
-    if (!error) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const idea = ideas.find(i => i.post_id === postId)
+      const { error } = await supabase.from('reddit_tool_actions').insert({
+        post_id: postId,
+        action,
+        notes: notes ?? null,
+        acted_by: user?.id ?? null,
+      })
+      if (error) {
+        console.error('actOnTool insert failed:', error.message, error.details, error.hint)
+        alert(`Failed to ${action} tool idea: ${error.message}`)
+        return false
+      }
       await logFeedback(supabase, {
         post_id: postId,
         agent_name: 'tool_scorer',
@@ -196,8 +201,12 @@ export function useToolIdeas() {
         original_action: idea?.action_rationale ?? undefined,
       })
       await fetchIdeas()
+      return true
+    } catch (err) {
+      console.error('actOnTool exception:', err)
+      alert(`Failed to ${action} tool idea: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      return false
     }
-    return !error
   }
 
   const reclassifyToContent = async (postId: string, scoreId: string) => {
@@ -279,15 +288,20 @@ export function useContentIdeas() {
   useEffect(() => { fetchIdeas() }, [fetchIdeas])
 
   const actOnContent = async (postId: string, action: string, notes?: string) => {
-    const { data: { user } } = await supabase.auth.getUser()
-    const idea = ideas.find(i => i.post_id === postId)
-    const { error } = await supabase.from('reddit_content_actions').insert({
-      post_id: postId,
-      action,
-      notes: notes ?? null,
-      acted_by: user?.id ?? null,
-    })
-    if (!error) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const idea = ideas.find(i => i.post_id === postId)
+      const { error } = await supabase.from('reddit_content_actions').insert({
+        post_id: postId,
+        action,
+        notes: notes ?? null,
+        acted_by: user?.id ?? null,
+      })
+      if (error) {
+        console.error('actOnContent insert failed:', error.message, error.details, error.hint)
+        alert(`Failed to ${action} content idea: ${error.message}`)
+        return false
+      }
       await logFeedback(supabase, {
         post_id: postId,
         agent_name: 'content_validator',
@@ -296,8 +310,12 @@ export function useContentIdeas() {
         original_action: idea?.action_rationale ?? undefined,
       })
       await fetchIdeas()
+      return true
+    } catch (err) {
+      console.error('actOnContent exception:', err)
+      alert(`Failed to ${action} content idea: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      return false
     }
-    return !error
   }
 
   const reclassifyToTool = async (postId: string, scoreId: string) => {

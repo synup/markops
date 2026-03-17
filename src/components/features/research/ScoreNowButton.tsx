@@ -9,7 +9,7 @@ export function ScoreNowButton() {
     <button
       onClick={requestScore}
       disabled={pending}
-      className="rounded-lg px-4 py-2 text-xs font-medium transition-colors"
+      className="btn-research rounded-lg px-4 py-2 text-xs font-medium"
       style={{
         background: pending ? 'var(--surface-2)' : 'var(--brand)',
         color: pending ? 'var(--text-muted)' : '#fff',

@@ -24,7 +24,7 @@ export function FeedSourceRow({ source, onToggle, onRemove }: FeedSourceRowProps
       <div className="flex min-w-0 flex-1 items-center gap-2.5">
         <button
           onClick={() => onToggle(source.id, !source.enabled)}
-          className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px]"
+          className="btn-research flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px]"
           style={{
             background: source.enabled ? 'var(--green)' : 'var(--surface-3)',
             color: source.enabled ? '#fff' : 'var(--text-dim)',
@@ -54,7 +54,7 @@ export function FeedSourceRow({ source, onToggle, onRemove }: FeedSourceRowProps
       </div>
       <button
         onClick={() => onRemove(source.id)}
-        className="ml-2 shrink-0 text-xs transition-colors"
+        className="btn-research ml-2 shrink-0 text-xs"
         style={{ color: 'var(--text-dim)' }}
         title="Remove"
       >

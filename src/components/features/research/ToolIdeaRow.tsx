@@ -68,14 +68,14 @@ export function ToolIdeaRow({ idea, onApprove, onReject, onReclassify }: ToolIde
                 color: status === 'approved' ? 'var(--green)' : status === 'rejected' ? 'var(--red)' : 'var(--brand)',
               }}>{status}</span>
               {hasSpec && (
-                <button onClick={() => setShowSpec(true)} className="rounded px-2 py-1 text-[10px] font-medium" style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}>View Spec</button>
+                <button onClick={() => setShowSpec(true)} className="btn-research rounded px-2 py-1 text-[10px] font-medium" style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}>View Spec</button>
               )}
             </div>
           ) : (
             <>
               <div className="flex items-center gap-1.5">
-                <button onClick={() => onApprove(idea.post_id)} className="rounded px-2.5 py-1 text-xs font-medium" style={{ background: 'var(--green-muted)', color: 'var(--green)' }}>Approve</button>
-                <button onClick={() => onReject(idea.post_id)} className="rounded px-2.5 py-1 text-xs font-medium" style={{ background: 'var(--red-muted)', color: 'var(--red)' }}>Reject</button>
+                <button onClick={() => onApprove(idea.post_id)} className="btn-research rounded px-2.5 py-1 text-xs font-medium" style={{ background: 'var(--green-muted)', color: 'var(--green)' }}>Approve</button>
+                <button onClick={() => onReject(idea.post_id)} className="btn-research rounded px-2.5 py-1 text-xs font-medium" style={{ background: 'var(--red-muted)', color: 'var(--red)' }}>Reject</button>
               </div>
               <ReclassifyButton targetTrack="Content" onConfirm={() => onReclassify(idea.post_id, idea.id)} />
             </>

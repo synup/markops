@@ -13,7 +13,7 @@ export function PromptSuggestions({ agentName }: PromptSuggestionsProps) {
     return (
       <button
         onClick={analyze}
-        className="mt-1.5 rounded px-2 py-0.5 text-[10px] font-medium transition-colors"
+        className="btn-research mt-1.5 rounded px-2 py-0.5 text-[10px] font-medium"
         style={{ background: 'var(--surface-2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
       >
         Suggest Improvements
@@ -35,7 +35,7 @@ export function PromptSuggestions({ agentName }: PromptSuggestionsProps) {
         </span>
         <button
           onClick={analyze}
-          className="text-[10px]"
+          className="btn-research text-[10px]"
           style={{ color: 'var(--brand)' }}
         >
           Refresh

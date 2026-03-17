@@ -75,7 +75,7 @@ function FilterBar({ filter, onFilter, counts }: {
         <button
           key={f.key}
           onClick={() => onFilter(f.key)}
-          className="rounded px-2.5 py-1 text-xs font-medium transition-colors"
+          className="btn-research rounded px-2.5 py-1 text-xs font-medium"
           style={{
             background: filter === f.key ? 'var(--brand-muted)' : 'var(--surface-2)',
             color: filter === f.key ? 'var(--brand)' : 'var(--text-muted)',

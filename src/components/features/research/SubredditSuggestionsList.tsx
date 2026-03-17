@@ -61,14 +61,14 @@ export function SubredditSuggestionsList() {
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => updateStatus(s.id, 'approved')}
-                  className="rounded px-2 py-0.5 text-[10px] font-medium"
+                  className="btn-research rounded px-2 py-0.5 text-[10px] font-medium"
                   style={{ background: 'var(--green-muted)', color: 'var(--green)' }}
                 >
                   Add
                 </button>
                 <button
                   onClick={() => updateStatus(s.id, 'rejected')}
-                  className="rounded px-2 py-0.5 text-[10px] font-medium"
+                  className="btn-research rounded px-2 py-0.5 text-[10px] font-medium"
                   style={{ background: 'var(--red-muted)', color: 'var(--red)' }}
                 >
                   Skip

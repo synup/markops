@@ -10,12 +10,12 @@ import type {
   PseoColumnFilters,
 } from '@/types'
 
-function getDaysForRange(range: PseoDateRange): number {
+function getDaysForRange(range: PseoDateRange): number | null {
   switch (range) {
     case '7d': return 7
     case '14d': return 14
     case '1m': return 30
-    case '3m': return 90
+    case 'all': return null
   }
 }
 
@@ -83,8 +83,18 @@ export function usePseoContent() {
   // Date-filtered articles
   const dateFiltered = useMemo(() => {
     const days = getDaysForRange(dateRange)
+    if (days === null) return allArticles
     return allArticles.filter(a => isWithinDays(a.publishedDate, days))
   }, [allArticles, dateRange])
+
+  // Per-site article counts (from date-filtered data)
+  const perSiteCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    dateFiltered.forEach(a => {
+      if (a.site) counts[a.site] = (counts[a.site] || 0) + 1
+    })
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])
+  }, [dateFiltered])
 
   // Column-filtered articles
   const filtered = useMemo(() => {
@@ -154,6 +164,7 @@ export function usePseoContent() {
     articles: paginated,
     totalFiltered: sorted.length,
     analytics,
+    perSiteCounts,
     loading,
     error,
     dateRange,

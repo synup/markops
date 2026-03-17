@@ -31,6 +31,14 @@ body {
   line-height: 1.5;
 }
 
+/* pSEO card hover */
+.pseo-card-hover { transition: background 0.15s ease; }
+.pseo-card-hover:hover { background: var(--surface-2) !important; }
+
+/* pSEO table row hover */
+.pseo-row { transition: background 0.15s ease; }
+.pseo-row:hover { background: var(--surface-2); }
+
 ::selection { background: var(--brand); color: white; }
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }

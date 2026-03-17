@@ -7,7 +7,7 @@ import { usePseoContent } from '@/hooks/usePseoContent'
 
 export default function PseoContentPage() {
   const {
-    articles, totalFiltered, analytics, loading, error,
+    articles, totalFiltered, analytics, perSiteCounts, loading, error,
     dateRange, setDateRange,
     columnFilters, updateColumnFilter, clearAllFilters, hasActiveFilters, filterOptions,
     sort, toggleSort,
@@ -27,6 +27,7 @@ export default function PseoContentPage() {
           <>
             <PseoAnalyticsBar
               analytics={analytics}
+              perSiteCounts={perSiteCounts}
               dateRange={dateRange}
               setDateRange={setDateRange}
               loading={loading}

@@ -47,7 +47,7 @@ export function ResearchActivityLog() {
               {a.post_title}
             </span>
             <span className="shrink-0 text-[10px]" style={{ color: 'var(--text-dim)' }}>
-              {new Date(a.acted_at).toLocaleDateString()}
+              {new Date(a.created_at).toLocaleDateString()}
             </span>
           </div>
         ))}

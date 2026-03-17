@@ -161,7 +161,7 @@ export function useToolIdeas() {
       .from('reddit_tool_actions')
       .select('*')
       .in('post_id', postIds)
-      .order('acted_at', { ascending: false })
+      .order('created_at', { ascending: false })
 
     const actionMap = new Map<string, RedditToolAction>()
     actions?.forEach(a => {
@@ -186,7 +186,7 @@ export function useToolIdeas() {
         post_id: postId,
         action,
         notes: notes ?? null,
-        acted_by: user?.id ?? null,
+        performed_by: user?.id ?? null,
       })
       if (error) {
         console.error('actOnTool insert failed:', error.message, error.details, error.hint)
@@ -270,7 +270,7 @@ export function useContentIdeas() {
       .from('reddit_content_actions')
       .select('*')
       .in('post_id', postIds)
-      .order('acted_at', { ascending: false })
+      .order('created_at', { ascending: false })
 
     const actionMap = new Map<string, RedditContentAction>()
     actions?.forEach(a => {
@@ -295,7 +295,7 @@ export function useContentIdeas() {
         post_id: postId,
         action,
         notes: notes ?? null,
-        acted_by: user?.id ?? null,
+        performed_by: user?.id ?? null,
       })
       if (error) {
         console.error('actOnContent insert failed:', error.message, error.details, error.hint)
@@ -588,7 +588,7 @@ export interface ResearchAction {
   type: 'tool' | 'content'
   action: string
   post_title: string
-  acted_at: string
+  created_at: string
 }
 
 export function useResearchActivity() {
@@ -601,13 +601,13 @@ export function useResearchActivity() {
       const [{ data: toolActions }, { data: contentActions }] = await Promise.all([
         supabase
           .from('reddit_tool_actions')
-          .select('id, action, acted_at, post:reddit_posts!post_id(title)')
-          .order('acted_at', { ascending: false })
+          .select('id, action, created_at, post:reddit_posts!post_id(title)')
+          .order('created_at', { ascending: false })
           .limit(25),
         supabase
           .from('reddit_content_actions')
-          .select('id, action, acted_at, post:reddit_posts!post_id(title)')
-          .order('acted_at', { ascending: false })
+          .select('id, action, created_at, post:reddit_posts!post_id(title)')
+          .order('created_at', { ascending: false })
           .limit(25),
       ])
 
@@ -620,7 +620,7 @@ export function useResearchActivity() {
           type: 'tool',
           action: a.action,
           post_title: post?.title ?? 'Unknown post',
-          acted_at: a.acted_at,
+          created_at: a.created_at,
         })
       })
 
@@ -631,11 +631,11 @@ export function useResearchActivity() {
           type: 'content',
           action: a.action,
           post_title: post?.title ?? 'Unknown post',
-          acted_at: a.acted_at,
+          created_at: a.created_at,
         })
       })
 
-      combined.sort((a, b) => new Date(b.acted_at).getTime() - new Date(a.acted_at).getTime())
+      combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       setActions(combined.slice(0, 30))
       setLoading(false)
     }

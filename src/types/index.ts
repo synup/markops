@@ -196,8 +196,8 @@ export interface RedditToolAction {
   action: string
   deploy_url: string | null
   notes: string | null
-  acted_by: string | null
-  acted_at: string
+  performed_by: string | null
+  created_at: string
 }
 
 export interface RedditContentAction {
@@ -206,8 +206,8 @@ export interface RedditContentAction {
   action: string
   brief_url: string | null
   notes: string | null
-  acted_by: string | null
-  acted_at: string
+  performed_by: string | null
+  created_at: string
 }
 
 export interface RedditAgentConfig {

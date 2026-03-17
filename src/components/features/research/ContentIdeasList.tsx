@@ -5,6 +5,7 @@ import { useContentIdeas } from '@/hooks/useRedditResearch'
 import { ContentIdeaRow } from './ContentIdeaRow'
 import { ReclassifyToast } from './ReclassifyToast'
 import { ExportCsvButton } from './ExportCsvButton'
+import { GenerateButton } from './GenerateButton'
 
 type Filter = 'all' | 'pending' | 'approved' | 'rejected'
 
@@ -40,7 +41,10 @@ export function ContentIdeasList() {
       )}
       <div className="mb-3 flex items-center justify-between">
         <FilterBar filter={filter} onFilter={setFilter} counts={counts} />
-        <ExportCsvButton type="content" ideas={ideas} />
+        <div className="flex items-center gap-2">
+          <GenerateButton type="content_brief" />
+          <ExportCsvButton type="content" ideas={ideas} />
+        </div>
       </div>
       <div className="flex flex-col gap-2">
         {filtered.map(idea => (

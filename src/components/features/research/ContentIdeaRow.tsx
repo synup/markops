@@ -35,8 +35,8 @@ export function ContentIdeaRow({ idea, onApprove, onReject, onReclassify }: Cont
             href={idea.post.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm font-medium hover:underline"
-            style={{ color: 'var(--text)' }}
+            className="text-base font-semibold hover:underline"
+            style={{ color: '#E5E7EB' }}
           >
             {idea.post.title}
           </a>
@@ -94,7 +94,7 @@ export function ContentIdeaRow({ idea, onApprove, onReject, onReclassify }: Cont
       </div>
 
       {idea.action_rationale && (
-        <p className="mt-2 text-xs" style={{ color: 'var(--text-dim)' }}>{idea.action_rationale}</p>
+        <p className="mt-2 text-[13px] italic" style={{ color: '#C4B5FD' }}>{idea.action_rationale}</p>
       )}
       {showBrief && hasBrief && (
         <ContentBriefViewer notes={idea.latest_action!.notes!} onClose={() => setShowBrief(false)} />

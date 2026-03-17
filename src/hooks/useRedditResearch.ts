@@ -86,6 +86,45 @@ export function useScoreRequest() {
   return { pending, requestScore }
 }
 
+// ── Spec/Brief Request ──────────────────────────────
+
+export function useSpecRequest(requestType: 'tool_spec' | 'content_brief') {
+  const [pending, setPending] = useState(false)
+  const supabase = createClient()
+
+  const request = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    setPending(true)
+    const { error } = await supabase.from('reddit_spec_requests').insert({
+      request_type: requestType,
+      requested_by: user?.email ?? user?.id ?? 'unknown',
+    })
+    if (error) { setPending(false); return false }
+    pollUntilDone()
+    return true
+  }
+
+  const pollUntilDone = () => {
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from('reddit_spec_requests')
+        .select('status')
+        .eq('status', 'pending')
+        .eq('request_type', requestType)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (!data) {
+        setPending(false)
+        clearInterval(interval)
+      }
+    }, 5000)
+    setTimeout(() => { clearInterval(interval); setPending(false) }, 300000)
+  }
+
+  return { pending, request }
+}
+
 // ── Brand Alerts ────────────────────────────────────
 
 export interface BrandMention {

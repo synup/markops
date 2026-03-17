@@ -9,8 +9,10 @@ interface PostPreviewProps {
 
 export function PostPreview({ post }: PostPreviewProps) {
   const [copied, setCopied] = useState(false)
-  const preview = post.summary || post.selftext
-  const truncated = preview ? (preview.length > 200 ? preview.slice(0, 200) + '...' : preview) : null
+  const [expanded, setExpanded] = useState(false)
+  const fullText = post.summary || post.selftext
+  const isLong = fullText ? fullText.length > 200 : false
+  const displayText = expanded ? fullText : (fullText ? (isLong ? fullText.slice(0, 200) + '...' : fullText) : null)
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(post.url)
@@ -20,10 +22,24 @@ export function PostPreview({ post }: PostPreviewProps) {
 
   return (
     <>
-      {truncated && (
-        <p className="mt-1.5 text-xs leading-relaxed" style={{ color: 'var(--text-dim)' }}>
-          {truncated}
-        </p>
+      {displayText && (
+        <div className="mt-1.5">
+          <p
+            className="whitespace-pre-line text-sm leading-[1.6]"
+            style={{ color: '#D1D5DB' }}
+          >
+            {displayText}
+          </p>
+          {isLong && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="btn-research mt-1 text-xs font-medium"
+              style={{ color: 'var(--brand)' }}
+            >
+              {expanded ? 'Show Less' : 'Read More'}
+            </button>
+          )}
+        </div>
       )}
       <div className="mt-1 flex items-center gap-1.5">
         <span className="truncate text-[10px]" style={{ color: 'var(--text-dim)' }}>
@@ -31,7 +47,7 @@ export function PostPreview({ post }: PostPreviewProps) {
         </span>
         <button
           onClick={handleCopy}
-          className="relative shrink-0 rounded p-0.5 transition-colors hover:bg-[var(--surface-3)]"
+          className="btn-research relative shrink-0 rounded p-0.5 hover:bg-[var(--surface-3)]"
           title="Copy URL"
         >
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style={{ color: 'var(--text-dim)' }}>

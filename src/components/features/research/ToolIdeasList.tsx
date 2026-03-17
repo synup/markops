@@ -5,6 +5,7 @@ import { useToolIdeas } from '@/hooks/useRedditResearch'
 import { ToolIdeaRow } from './ToolIdeaRow'
 import { ReclassifyToast } from './ReclassifyToast'
 import { ExportCsvButton } from './ExportCsvButton'
+import { GenerateButton } from './GenerateButton'
 
 type Filter = 'all' | 'pending' | 'approved' | 'rejected'
 
@@ -40,7 +41,10 @@ export function ToolIdeasList() {
       )}
       <div className="mb-3 flex items-center justify-between">
         <FilterBar filter={filter} onFilter={setFilter} counts={counts} />
-        <ExportCsvButton type="tool" ideas={ideas} />
+        <div className="flex items-center gap-2">
+          <GenerateButton type="tool_spec" />
+          <ExportCsvButton type="tool" ideas={ideas} />
+        </div>
       </div>
       <div className="flex flex-col gap-2">
         {filtered.map(idea => (

@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { label: 'Campaigns', href: '/campaigns', icon: '▶' },
   { label: 'Keywords', href: '/keywords', icon: '⌕' },
   { label: 'Research', href: '/research', icon: '◈' },
+  { label: 'pSEO Content', href: '/pseo-content', icon: '◎' },
   { label: 'Settings', href: '/settings', icon: '⚙' },
 ]
 

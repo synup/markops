@@ -48,6 +48,44 @@ export interface ReclassifyUndoData {
   scoreRow: Record<string, unknown>
 }
 
+// ── Score Request ───────────────────────────────────
+
+export function useScoreRequest() {
+  const [pending, setPending] = useState(false)
+  const supabase = createClient()
+
+  const requestScore = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    setPending(true)
+    const { error } = await supabase.from('reddit_score_requests').insert({
+      requested_by: user?.email ?? user?.id ?? 'unknown',
+    })
+    if (error) { setPending(false); return false }
+    pollUntilDone()
+    return true
+  }
+
+  const pollUntilDone = () => {
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from('reddit_score_requests')
+        .select('status')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (!data) {
+        setPending(false)
+        clearInterval(interval)
+      }
+    }, 5000)
+    // Auto-stop after 5 minutes
+    setTimeout(() => { clearInterval(interval); setPending(false) }, 300000)
+  }
+
+  return { pending, requestScore }
+}
+
 // ── Tool Ideas ──────────────────────────────────────
 
 export type ToolIdea = RedditToolScore & {
@@ -380,6 +418,55 @@ export function useAgentConfigs() {
   }
 
   return { agents, loading, updatePrompt, toggleAgent, refresh: fetchAgents }
+}
+
+// ── Feedback Summary ────────────────────────────────
+
+export interface FeedbackEntry {
+  id: string
+  feedback_type: string
+  post_id: string
+  created_at: string
+}
+
+export interface FeedbackSummaryData {
+  approvals: number
+  rejections: number
+  approvalRate: number
+  recent: FeedbackEntry[]
+}
+
+export function useFeedbackSummary(agentName: string) {
+  const [data, setData] = useState<FeedbackSummaryData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const supabase = createClient()
+
+  useEffect(() => {
+    async function fetch() {
+      const { data: rows } = await supabase
+        .from('reddit_feedback_log')
+        .select('id, feedback_type, post_id, created_at')
+        .eq('agent_name', agentName)
+        .order('created_at', { ascending: false })
+        .limit(200)
+
+      if (!rows) { setLoading(false); return }
+
+      const approvals = rows.filter(r => r.feedback_type === 'approved').length
+      const rejections = rows.filter(r => r.feedback_type === 'rejected').length
+      const total = approvals + rejections
+      setData({
+        approvals,
+        rejections,
+        approvalRate: total > 0 ? Math.round((approvals / total) * 100) : 0,
+        recent: rows.slice(0, 5),
+      })
+      setLoading(false)
+    }
+    fetch()
+  }, [agentName])
+
+  return { data, loading }
 }
 
 // ── Research Activity ───────────────────────────────

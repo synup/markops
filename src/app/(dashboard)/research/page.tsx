@@ -7,6 +7,7 @@ import { ToolIdeasList } from '@/components/features/research/ToolIdeasList'
 import { ContentIdeasList } from '@/components/features/research/ContentIdeasList'
 import { FeedTab } from '@/components/features/research/FeedTab'
 import { AgentsTab } from '@/components/features/research/AgentsTab'
+import { ScoreNowButton } from '@/components/features/research/ScoreNowButton'
 import { useResearchStats } from '@/hooks/useRedditResearch'
 
 type Tab = 'tool_ideas' | 'content_ideas' | 'feed' | 'agents'
@@ -25,6 +26,10 @@ export default function ResearchPage() {
   return (
     <>
       <Topbar title="Reddit Research" subtitle="Tool & content idea discovery from Reddit" />
+      <div className="flex items-center justify-between px-6 pt-4">
+        <div />
+        <ScoreNowButton />
+      </div>
       <ResearchStatsHeader stats={stats} loading={loading} />
 
       {/* Tab bar */}

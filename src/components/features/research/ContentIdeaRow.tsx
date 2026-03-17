@@ -1,9 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import type { ContentIdea } from '@/hooks/useRedditResearch'
 import { ScoreBar } from './ScoreBar'
 import { PostPreview } from './PostPreview'
 import { ReclassifyButton } from './ReclassifyButton'
+import { ContentBriefViewer } from './ContentBriefViewer'
 
 interface ContentIdeaRowProps {
   idea: ContentIdea
@@ -13,15 +15,17 @@ interface ContentIdeaRowProps {
 }
 
 export function ContentIdeaRow({ idea, onApprove, onReject, onReclassify }: ContentIdeaRowProps) {
+  const [showBrief, setShowBrief] = useState(false)
   const status = idea.latest_action?.action
-  const isActed = status === 'approved' || status === 'rejected'
+  const isActed = status === 'approved' || status === 'rejected' || status === 'brief_complete'
+  const hasBrief = status === 'brief_complete' && idea.latest_action?.notes
 
   return (
     <div
       className="rounded-lg p-4"
       style={{
         background: 'var(--surface)',
-        border: `1px solid ${isActed ? (status === 'approved' ? 'var(--green)' : 'var(--red)') : 'var(--border)'}`,
+        border: `1px solid ${status === 'approved' ? 'var(--green)' : status === 'rejected' ? 'var(--red)' : status === 'brief_complete' ? 'var(--blue)' : 'var(--border)'}`,
         opacity: isActed ? 0.7 : 1,
       }}
     >
@@ -59,10 +63,15 @@ export function ContentIdeaRow({ idea, onApprove, onReject, onReclassify }: Cont
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           {isActed ? (
-            <span className="rounded px-2 py-1 text-xs font-medium" style={{
-              background: status === 'approved' ? 'var(--green-muted)' : 'var(--red-muted)',
-              color: status === 'approved' ? 'var(--green)' : 'var(--red)',
-            }}>{status}</span>
+            <div className="flex flex-col items-end gap-1.5">
+              <span className="rounded px-2 py-1 text-xs font-medium" style={{
+                background: status === 'approved' ? 'var(--green-muted)' : status === 'rejected' ? 'var(--red-muted)' : 'var(--blue-muted, var(--brand-muted))',
+                color: status === 'approved' ? 'var(--green)' : status === 'rejected' ? 'var(--red)' : 'var(--blue)',
+              }}>{status === 'brief_complete' ? 'Brief Ready' : status}</span>
+              {hasBrief && (
+                <button onClick={() => setShowBrief(true)} className="rounded px-2 py-1 text-[10px] font-medium" style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}>View Brief</button>
+              )}
+            </div>
           ) : (
             <>
               <div className="flex items-center gap-1.5">
@@ -86,6 +95,9 @@ export function ContentIdeaRow({ idea, onApprove, onReject, onReclassify }: Cont
 
       {idea.action_rationale && (
         <p className="mt-2 text-xs" style={{ color: 'var(--text-dim)' }}>{idea.action_rationale}</p>
+      )}
+      {showBrief && hasBrief && (
+        <ContentBriefViewer notes={idea.latest_action!.notes!} onClose={() => setShowBrief(false)} />
       )}
     </div>
   )

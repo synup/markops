@@ -1,9 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import type { ToolIdea } from '@/hooks/useRedditResearch'
 import { ScoreBar } from './ScoreBar'
 import { PostPreview } from './PostPreview'
 import { ReclassifyButton } from './ReclassifyButton'
+import { ToolSpecViewer } from './ToolSpecViewer'
 
 interface ToolIdeaRowProps {
   idea: ToolIdea
@@ -13,15 +15,17 @@ interface ToolIdeaRowProps {
 }
 
 export function ToolIdeaRow({ idea, onApprove, onReject, onReclassify }: ToolIdeaRowProps) {
+  const [showSpec, setShowSpec] = useState(false)
   const status = idea.latest_action?.action
-  const isActed = status === 'approved' || status === 'rejected'
+  const isActed = status === 'approved' || status === 'rejected' || status === 'review_ready'
+  const hasSpec = status === 'review_ready' && idea.latest_action?.notes
 
   return (
     <div
       className="rounded-lg p-4"
       style={{
         background: 'var(--surface)',
-        border: `1px solid ${isActed ? (status === 'approved' ? 'var(--green)' : 'var(--red)') : 'var(--border)'}`,
+        border: `1px solid ${status === 'approved' ? 'var(--green)' : status === 'rejected' ? 'var(--red)' : status === 'review_ready' ? 'var(--brand)' : 'var(--border)'}`,
         opacity: isActed ? 0.7 : 1,
       }}
     >
@@ -58,10 +62,15 @@ export function ToolIdeaRow({ idea, onApprove, onReject, onReclassify }: ToolIde
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           {isActed ? (
-            <span className="rounded px-2 py-1 text-xs font-medium" style={{
-              background: status === 'approved' ? 'var(--green-muted)' : 'var(--red-muted)',
-              color: status === 'approved' ? 'var(--green)' : 'var(--red)',
-            }}>{status}</span>
+            <div className="flex flex-col items-end gap-1.5">
+              <span className="rounded px-2 py-1 text-xs font-medium" style={{
+                background: status === 'approved' ? 'var(--green-muted)' : status === 'rejected' ? 'var(--red-muted)' : 'var(--brand-muted)',
+                color: status === 'approved' ? 'var(--green)' : status === 'rejected' ? 'var(--red)' : 'var(--brand)',
+              }}>{status}</span>
+              {hasSpec && (
+                <button onClick={() => setShowSpec(true)} className="rounded px-2 py-1 text-[10px] font-medium" style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}>View Spec</button>
+              )}
+            </div>
           ) : (
             <>
               <div className="flex items-center gap-1.5">
@@ -85,6 +94,9 @@ export function ToolIdeaRow({ idea, onApprove, onReject, onReclassify }: ToolIde
 
       {idea.action_rationale && (
         <p className="mt-2 text-xs" style={{ color: 'var(--text-dim)' }}>{idea.action_rationale}</p>
+      )}
+      {showSpec && hasSpec && (
+        <ToolSpecViewer notes={idea.latest_action!.notes!} onClose={() => setShowSpec(false)} />
       )}
     </div>
   )

@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import type { PseoAnalytics, PseoDateRange } from '@/types'
+import type { PseoAnalytics, PseoDateRange, PseoCustomRange } from '@/types'
 
 const DATE_OPTIONS: { value: PseoDateRange; label: string }[] = [
   { value: '7d', label: 'Last 7 days' },
   { value: '14d', label: 'Last 14 days' },
   { value: '1m', label: 'Last 1 month' },
   { value: 'all', label: 'All Time' },
+  { value: 'custom', label: 'Custom' },
 ]
 
 interface PseoAnalyticsBarProps {
@@ -15,10 +16,15 @@ interface PseoAnalyticsBarProps {
   perSiteCounts: [string, number][]
   dateRange: PseoDateRange
   setDateRange: (range: PseoDateRange) => void
+  customRange: PseoCustomRange
+  setCustomRange: (range: PseoCustomRange) => void
   loading: boolean
 }
 
-export function PseoAnalyticsBar({ analytics, perSiteCounts, dateRange, setDateRange, loading }: PseoAnalyticsBarProps) {
+export function PseoAnalyticsBar({
+  analytics, perSiteCounts, dateRange, setDateRange,
+  customRange, setCustomRange, loading,
+}: PseoAnalyticsBarProps) {
   const [datePickerOpen, setDatePickerOpen] = useState(false)
 
   if (loading) {
@@ -38,7 +44,9 @@ export function PseoAnalyticsBar({ analytics, perSiteCounts, dateRange, setDateR
     analytics.indexingSuccessRate >= 90 ? 'var(--green)' :
     analytics.indexingSuccessRate >= 70 ? 'var(--yellow)' : 'var(--red)'
 
-  const currentLabel = DATE_OPTIONS.find(o => o.value === dateRange)?.label ?? ''
+  const currentLabel = dateRange === 'custom'
+    ? `${customRange.start} – ${customRange.end}`
+    : DATE_OPTIONS.find(o => o.value === dateRange)?.label ?? ''
 
   return (
     <div className="mb-6 flex flex-col gap-4">
@@ -46,7 +54,7 @@ export function PseoAnalyticsBar({ analytics, perSiteCounts, dateRange, setDateR
         {/* Per Site card */}
         <div
           className="pseo-card-hover rounded-lg p-4"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          style={{ background: 'var(--brand-muted)', border: '1px solid var(--brand-border)' }}
         >
           <div className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Per Site</div>
           <div className="mt-2 flex flex-col gap-1">
@@ -67,7 +75,7 @@ export function PseoAnalyticsBar({ analytics, perSiteCounts, dateRange, setDateR
 
         <div
           className="pseo-card-hover rounded-lg p-4"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          style={{ background: 'var(--brand-muted)', border: '1px solid var(--brand-border)' }}
         >
           <div className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Last 7 Days</div>
           <div className="mt-1 text-2xl font-bold" style={{ color: 'var(--text)' }}>{analytics.articlesLast7Days}</div>
@@ -75,7 +83,7 @@ export function PseoAnalyticsBar({ analytics, perSiteCounts, dateRange, setDateR
 
         <div
           className="pseo-card-hover rounded-lg p-4"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          style={{ background: 'var(--brand-muted)', border: '1px solid var(--brand-border)' }}
         >
           <div className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Indexing Rate</div>
           <div className="mt-1 text-2xl font-bold" style={{ color: rateColor }}>
@@ -87,11 +95,11 @@ export function PseoAnalyticsBar({ analytics, perSiteCounts, dateRange, setDateR
         <div className="relative">
           <div
             className="pseo-card-hover cursor-pointer rounded-lg p-4"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            style={{ background: 'var(--brand-muted)', border: '1px solid var(--brand-border)' }}
             onClick={() => setDatePickerOpen(!datePickerOpen)}
           >
             <div className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Date Range</div>
-            <div className="mt-1 text-lg font-bold" style={{ color: 'var(--text)' }}>{currentLabel}</div>
+            <div className="mt-1 text-lg font-bold truncate" style={{ color: 'var(--text)' }}>{currentLabel}</div>
             <div className="mt-0.5 text-xs" style={{ color: 'var(--text-dim)' }}>Click to change</div>
           </div>
 
@@ -99,7 +107,7 @@ export function PseoAnalyticsBar({ analytics, perSiteCounts, dateRange, setDateR
             <>
               <div className="fixed inset-0 z-10" onClick={() => setDatePickerOpen(false)} />
               <div
-                className="absolute right-0 top-full z-20 mt-2 w-56 rounded-lg p-4 shadow-lg"
+                className="absolute right-0 top-full z-20 mt-2 w-72 rounded-lg p-4 shadow-lg"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
               >
                 <div className="mb-3 text-sm font-semibold" style={{ color: 'var(--text)' }}>Date range</div>
@@ -109,10 +117,13 @@ export function PseoAnalyticsBar({ analytics, perSiteCounts, dateRange, setDateR
                       key={opt.value}
                       className="flex cursor-pointer items-center gap-3 rounded px-2 py-1.5 transition-colors"
                       style={{ background: dateRange === opt.value ? 'var(--surface-2)' : 'transparent' }}
-                      onClick={() => { setDateRange(opt.value); setDatePickerOpen(false) }}
+                      onClick={() => {
+                        setDateRange(opt.value)
+                        if (opt.value !== 'custom') setDatePickerOpen(false)
+                      }}
                     >
                       <span
-                        className="flex h-4 w-4 items-center justify-center rounded-full"
+                        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
                         style={{ border: `2px solid ${dateRange === opt.value ? 'var(--brand)' : 'var(--text-dim)'}` }}
                       >
                         {dateRange === opt.value && (
@@ -123,6 +134,52 @@ export function PseoAnalyticsBar({ analytics, perSiteCounts, dateRange, setDateR
                     </label>
                   ))}
                 </div>
+
+                {/* Custom date inputs */}
+                {dateRange === 'custom' && (
+                  <div className="mt-3 flex flex-col gap-2 border-t pt-3" style={{ borderColor: 'var(--border)' }}>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <div className="mb-1 text-xs" style={{ color: 'var(--text-muted)' }}>Start date</div>
+                        <input
+                          type="date"
+                          value={customRange.start}
+                          onChange={e => setCustomRange({ ...customRange, start: e.target.value })}
+                          className="w-full rounded px-2 py-1.5 text-xs outline-none"
+                          style={{
+                            background: 'var(--surface-2)',
+                            border: '1px solid var(--border)',
+                            color: 'var(--text)',
+                            colorScheme: 'dark',
+                          }}
+                        />
+                      </div>
+                      <span className="mt-4 text-xs" style={{ color: 'var(--text-dim)' }}>–</span>
+                      <div className="flex-1">
+                        <div className="mb-1 text-xs" style={{ color: 'var(--text-muted)' }}>End date</div>
+                        <input
+                          type="date"
+                          value={customRange.end}
+                          onChange={e => setCustomRange({ ...customRange, end: e.target.value })}
+                          className="w-full rounded px-2 py-1.5 text-xs outline-none"
+                          style={{
+                            background: 'var(--surface-2)',
+                            border: '1px solid var(--border)',
+                            color: 'var(--text)',
+                            colorScheme: 'dark',
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setDatePickerOpen(false)}
+                      className="mt-1 w-full rounded px-3 py-1.5 text-xs font-medium text-white"
+                      style={{ background: 'var(--brand)' }}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           )}

@@ -5,6 +5,7 @@ import type {
   PseoArticle,
   PseoAnalytics,
   PseoDateRange,
+  PseoCustomRange,
   PseoSortConfig,
   PseoSortField,
   PseoColumnFilters,
@@ -16,7 +17,18 @@ function getDaysForRange(range: PseoDateRange): number | null {
     case '14d': return 14
     case '1m': return 30
     case 'all': return null
+    case 'custom': return null // handled separately
   }
+}
+
+function isWithinCustomRange(dateStr: string, customRange: PseoCustomRange): boolean {
+  const d = parseDate(dateStr)
+  if (!d) return false
+  const start = new Date(customRange.start)
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(customRange.end)
+  end.setHours(23, 59, 59, 999)
+  return d >= start && d <= end
 }
 
 function parseDate(dateStr: string): Date | null {
@@ -55,6 +67,10 @@ export function usePseoContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dateRange, setDateRange] = useState<PseoDateRange>('7d')
+  const [customRange, setCustomRange] = useState<PseoCustomRange>({
+    start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    end: new Date().toISOString().split('T')[0],
+  })
   const [columnFilters, setColumnFilters] = useState<PseoColumnFilters>({})
   const [sort, setSort] = useState<PseoSortConfig>({ field: 'publishedDate', direction: 'desc' })
   const [page, setPage] = useState(1)
@@ -82,10 +98,13 @@ export function usePseoContent() {
 
   // Date-filtered articles
   const dateFiltered = useMemo(() => {
+    if (dateRange === 'custom') {
+      return allArticles.filter(a => isWithinCustomRange(a.publishedDate, customRange))
+    }
     const days = getDaysForRange(dateRange)
     if (days === null) return allArticles
     return allArticles.filter(a => isWithinDays(a.publishedDate, days))
-  }, [allArticles, dateRange])
+  }, [allArticles, dateRange, customRange])
 
   // Per-site article counts (from date-filtered data)
   const perSiteCounts = useMemo(() => {
@@ -140,7 +159,7 @@ export function usePseoContent() {
   }), [dateFiltered])
 
   // Reset page when filters or date range change
-  useEffect(() => { setPage(1) }, [dateRange, columnFilters])
+  useEffect(() => { setPage(1) }, [dateRange, customRange, columnFilters])
 
   const toggleSort = useCallback((field: PseoSortField) => {
     setSort(prev =>
@@ -169,6 +188,8 @@ export function usePseoContent() {
     error,
     dateRange,
     setDateRange,
+    customRange,
+    setCustomRange,
     columnFilters,
     updateColumnFilter,
     clearAllFilters,

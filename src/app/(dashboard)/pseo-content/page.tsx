@@ -8,7 +8,7 @@ import { usePseoContent } from '@/hooks/usePseoContent'
 export default function PseoContentPage() {
   const {
     articles, totalFiltered, analytics, perSiteCounts, loading, error,
-    dateRange, setDateRange,
+    dateRange, setDateRange, customRange, setCustomRange,
     columnFilters, updateColumnFilter, clearAllFilters, hasActiveFilters, filterOptions,
     sort, toggleSort,
     page, setPage, totalPages,
@@ -30,6 +30,8 @@ export default function PseoContentPage() {
               perSiteCounts={perSiteCounts}
               dateRange={dateRange}
               setDateRange={setDateRange}
+              customRange={customRange}
+              setCustomRange={setCustomRange}
               loading={loading}
             />
             <PseoDataTable

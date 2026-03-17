@@ -190,3 +190,43 @@ export interface RedditSubredditSuggestion {
   status: 'pending' | 'approved' | 'rejected'
   suggested_at: string
 }
+
+// ── pSEO Content types ───────────────────────────────
+
+export interface PseoArticle {
+  site: string
+  contentType: string
+  title: string
+  slug: string
+  fullUrl: string
+  targetKeyword: string
+  category: string
+  toolCount: number
+  toolsList: string
+  publishedDate: string
+  indexerStatus: string
+  indexerResponseCode: number
+  timestamp: string
+}
+
+export interface PseoAnalytics {
+  totalArticles: number
+  articlesLast7Days: number
+  indexingSuccessRate: number
+}
+
+export type PseoDateRange = '7d' | '14d' | '1m' | 'all' | 'custom'
+
+export interface PseoCustomRange {
+  start: string  // YYYY-MM-DD
+  end: string    // YYYY-MM-DD
+}
+
+export type PseoSortField = keyof PseoArticle
+
+export interface PseoSortConfig {
+  field: PseoSortField
+  direction: 'asc' | 'desc'
+}
+
+export type PseoColumnFilters = Partial<Record<keyof PseoArticle, string>>

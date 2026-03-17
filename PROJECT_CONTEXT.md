@@ -40,7 +40,7 @@ markops/
 │   │   │       ├── audit/     ← AuditScoreHeader, AuditTriggerButton, SearchTermsPanel, SearchTermRow, ExpansionPanel, PausePanel, ActionLogPanel, ActionLogRow
 │   │   │       ├── campaigns/ ← CampaignTable
 │   │   │       ├── keywords/  ← NegativeKeywordRow, NegativeKeywordsList, KeywordExpansionRow
-│   │   │       ├── research/  ← 25 components: ToolIdeasList, ContentIdeasList, ToolIdeaRow, ContentIdeaRow, FeedTab, FeedSourceManager, FeedSourceRow, AddFeedForm, AgentsTab, AgentCard, AgentEditor, PipelineStatus, ResearchStatsHeader, ResearchActivityLog, SubredditSuggestionsList, ScoreBar, PostPreview, ReclassifyButton, ReclassifyToast, ScoreNowButton, ToolSpecViewer, ContentBriefViewer, FeedbackSummary, ExportCsvButton, PromptSuggestions, BrandAlertBanner
+│   │   │       ├── research/  ← 26 components: ToolIdeasList, ContentIdeasList, ToolIdeaRow, ContentIdeaRow, FeedTab, FeedSourceManager, FeedSourceRow, AddFeedForm, AgentsTab, AgentCard, AgentEditor, PipelineStatus, ResearchStatsHeader, ResearchActivityLog, SubredditSuggestionsList, ScoreBar, PostPreview, ReclassifyButton, ReclassifyToast, ScoreNowButton, GenerateButton, ToolSpecViewer, ContentBriefViewer, FeedbackSummary, ExportCsvButton, PromptSuggestions, BrandAlertBanner
 │   │   │       ├── schedule/  ← ScheduleDisplay, ScheduleForm, TimezoneSelect
 │   │   │       └── users/     ← UserManagement, UserRow
 │   │   ├── hooks/             ← useAuth, useAuditData, useAuditTrigger, useAuditSchedule, useCampaigns, useSearchTerms, useUsers, useKeywordActions, useRedditResearch (10 sub-hooks)
@@ -88,7 +88,7 @@ markops/
 - **Font**: System fonts (-apple-system, Inter)
 - **Component rule**: No component > 150 lines. UI separated from logic via hooks.
 
-## Database Tables (23 total, 9 migrations)
+## Database Tables (24 total, 9 migrations)
 
 | Table | Purpose | Written By |
 |-------|---------|-----------|
@@ -115,6 +115,7 @@ markops/
 | `reddit_agent_configs` | Agent system prompts with versioning (agent_name, agent_role, model, enabled) | Dashboard users |
 | `reddit_feedback_log` | Tracks all approve/reject/reclassify actions with metadata | Dashboard (auto-logged) |
 | `reddit_score_requests` | On-demand scoring triggers (pending→completed, polled by droplet) | Dashboard → Droplet |
+| `reddit_spec_requests` | On-demand spec/brief generation triggers (request_type: tool_spec/content_brief, polled by droplet) | Dashboard → Droplet |
 
 ## Approval Workflow
 
@@ -154,21 +155,21 @@ markops/
 - **Deployed scripts (Reddit)**: `reddit_rss_poller.py`, `score_posts.py`, `generate_tool_specs.py`, `generate_promotions.py`, `generate_briefs.py` (in `/opt/reddit-research-tool/`)
 - **Cron (Ads)**: `*/5 * * * *` polls for on-demand audits + scheduled audits + push-to-ads requests
 - **Cron (Ads daily 2am)**: `fetch_campaign_metrics.py --days 1` (sources .env, logs to /var/log/campaign_metrics.log)
-- **Cron (Reddit)**: 8 jobs — RSS poller (every 30min), score_posts (hourly), generate_tool_specs (every 2h), generate_promotions (every 4h), generate_briefs (every 4h), subreddit_suggester (daily), feed_enricher (every 6h), poll_score_requests (*/5)
-- **All 6 Reddit scripts read agent configs from Supabase** (`reddit_agent_configs` table) for system prompts, model, temperature
+- **Cron (Reddit)**: 9 jobs — RSS poller (every 30min), score_posts (hourly), generate_tool_specs (every 2h), generate_promotions (every 4h), generate_briefs (every 4h), subreddit_suggester (daily), feed_enricher (every 6h), poll_score_requests (*/5), poll_spec_requests (*/5)
+- **All 6 Reddit scripts read agent configs from Supabase** (`reddit_agent_configs` table) for system prompts, model, temperature. tool_builder and brief_builder upgraded to Sonnet.
 - **Swap**: 1GB swap file added (droplet only has 1GB RAM)
 - **Env vars in `/opt/google-ads-auditor/.env`**: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_ADS_CUSTOMER_ID, GOOGLE_ADS_LOGIN_CUSTOMER_ID, plus Google Ads OAuth credentials
 - **Google Ads account**: Synup USA - Agency (185 campaigns, 36,896 keywords)
 - **Patch applied**: `google_ads_client.py` line ~371 — added `campaign.status` to fetch_extensions SELECT clause
 
-## Current State (2026-03-16)
+## Current State (2026-03-17)
 
 ### Completed
 - Next.js project scaffolded with all core files
-- Supabase database with 23 tables (migrations 001-008b all run, reddit_score_requests created manually)
+- Supabase database with 24 tables (migrations 001-008b all run, reddit_score_requests + reddit_spec_requests created manually)
 - Google OAuth working (tested — login successful on both localhost and Vercel)
 - Dashboard pages: Home, Audit (8 tabs), Campaigns, Keywords, Research (4 tabs), Settings
-- Data hooks: useAuth, useAuditData, useAuditTrigger, useAuditSchedule, useCampaigns, useSearchTerms, useUsers, useKeywordActions, usePushToAds, useChangelog, useRedditResearch (10 sub-hooks)
+- Data hooks: useAuth, useAuditData, useAuditTrigger, useAuditSchedule, useCampaigns, useSearchTerms, useUsers, useKeywordActions, usePushToAds, useChangelog, useRedditResearch (11 sub-hooks)
 - Push-to-Supabase script with search terms support (key mismatch fixed)
 - On-demand audit trigger (dashboard → audit_requests → droplet polls)
 - Scheduler UI (frequency/day/time/timezone picker on Settings page)
@@ -214,6 +215,7 @@ markops/
 - **"Reddit" in sidebar** navigation (between Keywords and Settings, icon: ◈)
 - **useRedditResearch.ts** hook (~620 lines) with 10 sub-hooks:
   - `useScoreRequest()` — insert into reddit_score_requests, poll until completed
+  - `useSpecRequest(type)` — insert into reddit_spec_requests (tool_spec or content_brief), poll until completed
   - `useBrandAlerts()` — unreviewed brand_mention posts (used by sidebar badge + alert banner)
   - `useToolIdeas()` — fetches tool scores with joined posts, approve/reject, reclassify to content with undo
   - `useContentIdeas()` — fetches content scores with joined posts, approve/reject, reclassify to tool with undo
@@ -224,19 +226,19 @@ markops/
   - `usePromptSuggestions(agent_name)` — pattern analysis on feedback for prompt improvement suggestions
   - `useResearchActivity()` — joins tool+content actions with post titles for activity log
   - `useResearchStats()` — count queries across all tables for stats header
-- **25 components** (all under 150 lines) in `src/components/features/research/`:
+- **26 components** (all under 150 lines) in `src/components/features/research/`:
   - Tool/Content Ideas: `ToolIdeasList`, `ContentIdeasList`, `ToolIdeaRow`, `ContentIdeaRow` — filter bar (All/Pending/Approved/Rejected with counts), score breakdowns (6 ScoreBars), approve/reject buttons, CSV export
-  - Spec/Brief Viewers: `ToolSpecViewer` (modal for review_ready specs), `ContentBriefViewer` (modal with collapsible channels for brief_complete briefs)
+  - Spec/Brief Viewers: `ToolSpecViewer` (error-boundary-wrapped modal for review_ready specs, smart object rendering, Markdown download), `ContentBriefViewer` (error-boundary-wrapped modal with collapsible channels for brief_complete briefs, Markdown download), `GenerateButton` (on-demand spec/brief generation)
   - Feed Management: `FeedTab`, `FeedSourceManager`, `FeedSourceRow`, `AddFeedForm` — CRUD for subreddit + keyword_search feeds, enable/disable toggle, post counts
   - Agents: `AgentsTab`, `AgentCard`, `AgentEditor`, `FeedbackSummary`, `PromptSuggestions` — view/edit agent system prompts with version tracking, feedback analysis, prompt improvement suggestions
   - Pipeline: `PipelineStatus` — visual 6-agent pipeline (Tool Track + Content Track)
   - Stats/Alerts: `ResearchStatsHeader` (6 stat cards), `ScoreNowButton`, `BrandAlertBanner` (yellow warning for unreviewed brand mentions)
-  - Shared: `ScoreBar`, `PostPreview` (summary + URL + copy button), `ReclassifyButton` (with inline confirm), `ReclassifyToast` (10s countdown undo banner), `ExportCsvButton` (client-side CSV generation)
+  - Shared: `ScoreBar` (NaN-safe with N/A fallback), `PostPreview` (HTML-stripped summary with Read More expansion + URL + copy button), `ReclassifyButton` (with inline confirm), `ReclassifyToast` (10s countdown undo banner), `ExportCsvButton` (client-side CSV generation)
   - Activity: `ResearchActivityLog`, `SubredditSuggestionsList` (with relevance_score, post_frequency, discovered_via)
 - **Reclassify system**: Move ideas between Tool↔Content tracks with confirmation dialog, undo within 10 seconds
 - **Feedback logging**: All approve/reject/reclassify actions logged to `reddit_feedback_log` table
-- **Post preview**: Shows summary/selftext (first 200 chars) + Reddit URL with clipboard copy button
-- **10 Reddit types** in `src/types/index.ts`: RedditFeedSource, RedditPost, RedditToolScore, RedditContentScore, RedditToolAction, RedditContentAction, RedditSubredditSuggestion, RedditAgentConfig, RedditFeedbackLog, RedditScoreRequest
+- **Post preview**: Shows HTML-stripped summary/selftext with Read More/Show Less expansion + Reddit URL with clipboard copy button
+- **10 Reddit types** in `src/types/index.ts`: RedditFeedSource, RedditPost, RedditToolScore, RedditContentScore, RedditToolAction (`performed_by`, `created_at`), RedditContentAction (`performed_by`, `created_at`), RedditSubredditSuggestion, RedditAgentConfig, RedditFeedbackLog, RedditScoreRequest
 - **Migration SQL files** for version control: `008_reddit_research.sql` (7 tables + RLS + indexes), `008b_seed_reddit_feeds.sql` (30 seed feeds)
 - **PostgREST joins** using FK hints: `reddit_posts!post_id(*)` for score→post joins
 
@@ -306,18 +308,38 @@ markops/
 11. Created migration SQL files (008, 008b) for version control
 12. Updated PROJECT_CONTEXT.md with all Reddit Research work
 
-### 2026-03-17 — Reddit Research Enhancements Session
+### 2026-03-17 — Reddit Research Enhancements + Bug Fixes Session
+**New Features:**
 1. "Score Now" button: inserts into `reddit_score_requests`, polls until done, shows "Scoring..." state
-2. Tool Spec Viewer: modal parses JSON specs on `review_ready` actions — renders tool name, features, file structure, code outline, build instructions, Claude Code prompt
-3. Content Brief Viewer: modal with collapsible channel sections on `brief_complete` actions — topic, angle, audience, channels, timeline, metrics
-4. Feedback Summary per agent: approval/rejection counts, rate bar (color-coded), last 5 entries on each AgentCard
-5. Subreddit Suggestions fix: now shows relevance_score, post_frequency, discovered_via; auto-adds to reddit_feed_sources on approve; sets reviewed_by/reviewed_at
-6. Brand Alert Banner: yellow warning when unreviewed brand_mention posts exist, expandable list with links
-7. CSV Export: client-side export on Tool Ideas and Content Ideas tabs (12/14 columns respectively)
-8. Prompt Suggestions: pattern analysis on feedback data — rejection rates, per-subreddit performance, score differentiation, reclassification patterns
-9. Sidebar notification badge: red count badge on "Reddit" nav item for unreviewed brand mentions
-10. Added RedditScoreRequest type and reddit_score_requests to table list
-11. Updated PROJECT_CONTEXT.md with all session work
+2. "Generate Specs Now" / "Generate Briefs Now" buttons: `useSpecRequest(type)` hook inserts into `reddit_spec_requests` (tool_spec or content_brief), polls every 5s until completed, 5min auto-timeout. `GenerateButton.tsx` component placed next to CSV export on both Tool Ideas and Content Ideas tabs
+3. Tool Spec Viewer: error-boundary-wrapped modal with solid #1A1A1A background, white 20px bold title, purple-400 section headers (16px semibold uppercase), gray-100 body text (14px, line-height 1.7), 32px padding, 800px max-width. Smart rendering: features as cards (name bold + description + priority badge), file_structure as monospace paths with descriptions, code sections in pre blocks. Markdown download (.md) with headers, bullets, code blocks
+4. Content Brief Viewer: same solid modal treatment with blue-300 section headers. Collapsible channel sections with format/word_count metadata. Smart rendering for all nested objects. Markdown download
+5. Feedback Summary per agent: approval/rejection counts, rate bar (color-coded), last 5 entries on each AgentCard
+6. Subreddit Suggestions fix: now shows relevance_score, post_frequency, discovered_via; auto-adds to reddit_feed_sources on approve; sets reviewed_by/reviewed_at
+7. Brand Alert Banner: yellow warning when unreviewed brand_mention posts exist, expandable list with links
+8. CSV Export: client-side export on Tool Ideas and Content Ideas tabs (12/14 columns respectively)
+9. Prompt Suggestions: pattern analysis on feedback data — rejection rates, per-subreddit performance, score differentiation, reclassification patterns
+10. Sidebar notification badge: red count badge on "Reddit" nav item for unreviewed brand mentions
+11. Read More/Show Less expansion on PostPreview: truncates at 200 chars, expand to full text with toggle button
+12. Text styling: titles bumped to 16px/font-semibold (#E5E7EB), rationale text 13px/italic in purple (#C4B5FD), body text 14px (#D1D5DB) with whitespace-pre-line
+
+**Bug Fixes:**
+13. `acted_by` → `performed_by`, `acted_at` → `created_at`: column names in useRedditResearch.ts and types/index.ts didn't match actual Supabase schema
+14. Reclassify buttons invisible: were black text on dark background. Fixed with #9CA3AF text + #4B5563 border, hover transitions to white + purple
+15. Approve/Reject silently failing: added try/catch with console.error + alert() to surface actual Supabase errors
+16. Hover/click effects on all buttons: global `.btn-research` CSS class (brightness(1.2) + scale(1.02) on hover, scale(0.98) on active)
+17. View Spec button not showing: Approved filter only matched `action === 'approved'`, so `review_ready` items were invisible. Changed to exclusion logic: Approved tab now shows everything except `rejected`/`archived`
+18. View Spec crash: JSON.parse could return null/primitives crashing render. Added React error boundary wrapping entire viewer + raw text fallback for non-JSON notes
+19. `[object Object]` in features/file_structure: features array contained objects with feature/description/priority fields; file_structure was a key-value object. All now have dedicated smart renderers
+20. ScoreBar NaN: scores stored as strings or null caused NaN display. Added null/undefined/NaN guard with Number() coercion, shows "N/A" for missing scores
+21. Raw HTML in post preview: Reddit selftext contained `<!-- SC_OFF --><div class="md">` HTML tags. Added regex strip + HTML entity decoding (&amp; &lt; &gt; &quot; &#039;)
+22. `isActed` too narrow: only checked 3 statuses, now uses `!!status` to catch all action states (in_progress, deployed, published, etc.)
+
+**Infrastructure:**
+23. Added `reddit_spec_requests` table (now 11 reddit tables, 24 total)
+24. Droplet cron: 9 Reddit jobs (added poll_spec_requests */5)
+25. tool_builder and brief_builder agents upgraded to Sonnet on droplet
+26. Updated PROJECT_CONTEXT.md with all session work
 
 ## Rules for Future Sessions
 1. **Components < 150 lines** — split if exceeding

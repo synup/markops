@@ -63,12 +63,29 @@ export function ToolIdeaRow({ idea, onApprove, onReject, onReclassify }: ToolIde
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           {isActed ? (
             <div className="flex flex-col items-end gap-1.5">
-              <span className="rounded px-2 py-1 text-xs font-medium" style={{
-                background: status === 'approved' ? 'var(--green-muted)' : status === 'rejected' ? 'var(--red-muted)' : 'var(--brand-muted)',
-                color: status === 'approved' ? 'var(--green)' : status === 'rejected' ? 'var(--red)' : 'var(--brand)',
-              }}>{status}</span>
-              {hasSpec && (
-                <button onClick={() => setShowSpec(true)} className="btn-research rounded px-2 py-1 text-[10px] font-medium" style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}>View Spec</button>
+              {hasSpec ? (
+                <>
+                  <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}>Spec Ready</span>
+                  <button onClick={() => setShowSpec(true)} className="btn-research rounded px-2.5 py-1.5 text-xs font-semibold" style={{ background: 'var(--brand)', color: '#fff' }}>View Spec</button>
+                  <button
+                    onClick={() => {
+                      const spec = (() => { try { return JSON.parse(idea.latest_action!.notes!) } catch { return { notes: idea.latest_action!.notes } } })()
+                      const slug = (spec.tool_name || 'tool').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+                      const blob = new Blob([JSON.stringify(spec, null, 2)], { type: 'application/json' })
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement('a'); a.href = url; a.download = `${slug}-spec.json`; a.click()
+                      URL.revokeObjectURL(url)
+                    }}
+                    className="btn-research rounded px-2 py-1 text-[10px] font-medium"
+                    style={{ background: 'var(--surface-2)', color: 'var(--brand)', border: '1px solid var(--brand-border)' }}
+                  >Download Spec</button>
+                </>
+              ) : status === 'approved' ? (
+                <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--green-muted)', color: 'var(--green)' }}>Awaiting Spec</span>
+              ) : status === 'rejected' ? (
+                <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--red-muted)', color: 'var(--red)' }}>Rejected</span>
+              ) : (
+                <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}>{status}</span>
               )}
             </div>
           ) : (

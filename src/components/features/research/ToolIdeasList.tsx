@@ -21,16 +21,19 @@ export function ToolIdeasList() {
     return <div className="py-8 text-center text-sm" style={{ color: 'var(--text-dim)' }}>No tool ideas scored yet.</div>
   }
 
+  const isApproved = (a?: string | null) => a === 'approved' || a === 'review_ready'
+
   const filtered = ideas.filter(idea => {
     if (filter === 'all') return true
     if (filter === 'pending') return !idea.latest_action
+    if (filter === 'approved') return isApproved(idea.latest_action?.action)
     return idea.latest_action?.action === filter
   })
 
   const counts = {
     all: ideas.length,
     pending: ideas.filter(i => !i.latest_action).length,
-    approved: ideas.filter(i => i.latest_action?.action === 'approved').length,
+    approved: ideas.filter(i => isApproved(i.latest_action?.action)).length,
     rejected: ideas.filter(i => i.latest_action?.action === 'rejected').length,
   }
 

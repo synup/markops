@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { label: 'Adwords Audit', href: '/audit', icon: '✓' },
   { label: 'Campaigns', href: '/campaigns', icon: '▶' },
   { label: 'Keywords', href: '/keywords', icon: '⌕' },
+  { label: 'Leads', href: '/leads', icon: '◆' },
   { label: 'Reddit', href: '/research', icon: '◈' },
   { label: 'pSEO Content', href: '/pseo-content', icon: '◎' },
   { label: 'Settings', href: '/settings', icon: '⚙' },

@@ -309,7 +309,8 @@ export interface TallyLead {
   submitted_at: string
   email: string | null
   company_name: string | null
-  full_name: string | null
+  first_name: string | null
+  last_name: string | null
   phone: string | null
   employee_count: '1-10' | '11-50' | '51-100' | '100+' | null
   business_type: string | null

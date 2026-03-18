@@ -298,3 +298,47 @@ export interface PseoSortConfig {
 }
 
 export type PseoColumnFilters = Partial<Record<keyof PseoArticle, string>>
+
+// ── Tally Leads types ────────────────────────────────
+
+export interface TallyLead {
+  id: number
+  tally_submission_id: string
+  tally_form_id: string
+  form_name: 'Book a Demo' | 'Contact Us'
+  submitted_at: string
+  email: string | null
+  company_name: string | null
+  full_name: string | null
+  phone: string | null
+  employee_count: '1-10' | '11-50' | '51-100' | '100+' | null
+  business_type: string | null
+  attribution_source: string | null
+  raw_response: Record<string, unknown> | null
+  zoho_lead_id: string | null
+  lead_status: string | null
+  lead_source: string | null
+  traffic_source: string | null
+  visitor_campaign: string | null
+  visitor_medium: string | null
+  visitor_term: string | null
+  last_landing_url: string | null
+  fetched_at: string
+  updated_at: string
+}
+
+export interface LeadsFilters {
+  dateFrom: string | null
+  dateTo: string | null
+  formName: string | null
+  employeeCount: string | null
+  businessType: string | null
+  attributionSource: string | null
+}
+
+export interface LeadsDailySummary {
+  date: string
+  total: number
+  book_a_demo: number
+  contact_us: number
+}

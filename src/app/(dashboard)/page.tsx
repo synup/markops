@@ -5,6 +5,7 @@ import { StatCard } from '@/components/ui/StatCard'
 import { ScoreGauge } from '@/components/ui/ScoreGauge'
 import { useLatestAudit } from '@/hooks/useAuditData'
 import { useLatestCampaignSnapshot } from '@/hooks/useCampaigns'
+import { LeadsSummaryCard } from '@/components/features/leads/LeadsSummaryCard'
 
 export default function DashboardPage() {
   const { audit, loading: auditLoading } = useLatestAudit()
@@ -61,8 +62,13 @@ export default function DashboardPage() {
                 </div>
               </div>
             )}
+
+        {/* Leads summary — always visible */}
+        <LeadsSummaryCard />
           </>
         )}
+
+        {/* Leads summary — always visible */}
       </div>
     </>
   )

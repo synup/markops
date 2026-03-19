@@ -39,7 +39,7 @@ markops/
 │   │   │   └── features/
 │   │   │       ├── audit/     ← AuditScoreHeader, AuditTriggerButton, SearchTermsPanel, SearchTermRow, ExpansionPanel, PausePanel, ActionLogPanel, ActionLogRow
 │   │   │       ├── campaigns/ ← CampaignTable
-│   │   │       ├── keywords/  ← NegativeKeywordRow, NegativeKeywordsList, KeywordExpansionRow
+│   │   │       ├── keywords/  ← GroupedKeywordRow, NegativeKeywordRow, NegativeKeywordsList, KeywordExpansionRow
 │   │   │       ├── research/  ← 26 components: ToolIdeasList, ContentIdeasList, ToolIdeaRow, ContentIdeaRow, FeedTab, FeedSourceManager, FeedSourceRow, AddFeedForm, AgentsTab, AgentCard, AgentEditor, PipelineStatus, ResearchStatsHeader, ResearchActivityLog, SubredditSuggestionsList, ScoreBar, PostPreview, ReclassifyButton, ReclassifyToast, ScoreNowButton, GenerateButton, ToolSpecViewer, ContentBriefViewer, FeedbackSummary, ExportCsvButton, PromptSuggestions, BrandAlertBanner
 │   │   │       ├── schedule/  ← ScheduleDisplay, ScheduleForm, TimezoneSelect
 │   │   │       └── users/     ← UserManagement, UserRow

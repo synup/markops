@@ -36,6 +36,7 @@ export function GroupedKeywordRow({
 
   const campaigns = keywords.map(k => k.campaign)
   const matchType = keywords[0]?.match_type || 'exact'
+  const category = keywords[0]?.category
 
   return (
     <div>
@@ -76,6 +77,7 @@ export function GroupedKeywordRow({
           </div>
           <div className="truncate text-xs" style={{ color: 'var(--text-muted)' }}>
             {matchType}
+            {category && <span style={{ color: '#F59E0B' }}>{` · ${category.replace(/_/g, ' ')}`}</span>}
             {keywords.length <= 3
               ? ` · ${campaigns.join(', ')}`
               : ` · ${campaigns.slice(0, 2).join(', ')} +${campaigns.length - 2} more`}

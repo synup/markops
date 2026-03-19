@@ -16,12 +16,23 @@ type StatusFilter = 'all' | 'candidate' | 'approved' | 'denied'
 export function NegativeKeywordsList({ keywords, onUpdateStatus }: NegativeKeywordsListProps) {
   const [filter, setFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [bulkLoading, setBulkLoading] = useState(false)
   const { logAction, logBulkActions } = useKeywordActions()
 
+  // Extract unique categories from all keywords
+  const categories = useMemo(() => {
+    const cats = new Set<string>()
+    for (const k of keywords) {
+      if (k.category) cats.add(k.category)
+    }
+    return [...cats].sort()
+  }, [keywords])
+
   const filtered = keywords.filter(k => {
     if (statusFilter !== 'all' && k.status !== statusFilter) return false
+    if (categoryFilter !== 'all' && k.category !== categoryFilter) return false
     if (filter && !k.term.toLowerCase().includes(filter.toLowerCase()) &&
         !k.campaign.toLowerCase().includes(filter.toLowerCase())) return false
     return true
@@ -115,6 +126,24 @@ export function NegativeKeywordsList({ keywords, onUpdateStatus }: NegativeKeywo
           <option value="approved">Approved</option>
           <option value="denied">Denied</option>
         </select>
+
+        {categories.length > 0 && (
+          <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
+            className="rounded-md px-3 py-1.5 text-xs outline-none"
+            style={{
+              background: categoryFilter !== 'all' ? 'rgba(124,58,237,0.15)' : 'var(--surface-2)',
+              border: categoryFilter !== 'all' ? '1px solid rgba(124,58,237,0.4)' : '1px solid var(--border)',
+              color: categoryFilter !== 'all' ? '#A78BFA' : 'var(--text)',
+            }}>
+            <option value="all">All Categories</option>
+            {categories.map(cat => (
+              <option key={cat} value={cat}>
+                {cat.replace(/_/g, ' ')}
+                {` (${keywords.filter(k => k.category === cat).length})`}
+              </option>
+            ))}
+          </select>
+        )}
 
         <input type="text" placeholder="Filter..." value={filter}
           onChange={e => setFilter(e.target.value)}

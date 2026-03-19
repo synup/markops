@@ -1,6 +1,6 @@
 # Marketing HQ — Project Context
 
-> Updated end of session 2026-03-17. This file is the single source of truth for continuing work on this project.
+> Updated end of session 2026-03-19. This file is the single source of truth for continuing work on this project.
 
 ## What This Is
 
@@ -340,6 +340,20 @@ markops/
 24. Droplet cron: 9 Reddit jobs (added poll_spec_requests */5)
 25. tool_builder and brief_builder agents upgraded to Sonnet on droplet
 26. Updated PROJECT_CONTEXT.md with all session work
+
+### 2026-03-19 — Push-to-Ads Fix + Keywords UX Session
+**UX Improvements:**
+1. Grouped negative keywords by term: same keyword across multiple campaigns now shows as single row with purple campaign count badge, aggregated metrics, expand/collapse for per-campaign details
+2. New `GroupedKeywordRow.tsx` component with one-click approve/deny for all campaign instances
+3. Added category filter dropdown to Keywords page (e.g., filter by `diy_learners`), highlights purple when active, shows count per category
+4. Category label shown on each grouped row in yellow text
+
+**Push-to-Ads Fixes (droplet only — `push_negatives_to_ads.py`):**
+5. Fixed import: `google_ads_client` → `google_ads_auditor.google_ads_client` (same bug as fetch_campaign_metrics.py)
+6. Added env var overrides for Google Ads credentials (config.yaml has empty values, .env has the real tokens)
+7. Removed `metadata` column write — column doesn't exist on `negative_keywords` table, was causing PGRST204 errors
+8. Successfully pushed 735 negative keywords to Google Ads campaigns
+9. Bulk-updated all 735 from `approved` → `pushed` status in Supabase (status wasn't updating due to metadata bug)
 
 ## Rules for Future Sessions
 1. **Components < 150 lines** — split if exceeding

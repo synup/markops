@@ -1,6 +1,6 @@
 # Marketing HQ — Project Context
 
-> Updated end of session 2026-03-19. This file is the single source of truth for continuing work on this project.
+> Updated end of session 2026-03-21. This file is the single source of truth for continuing work on this project.
 
 ## What This Is
 
@@ -17,6 +17,7 @@
 | Auth | Supabase Auth + Google OAuth | Supabase | Restricted to @synup.com emails |
 | API | Supabase REST API | Supabase | For Clawbot / CEO daily data access (service_role key) |
 | Reddit Research | Python (CrewAI agents) | DO droplet | 6-agent pipeline: RSS polling → scoring → tool specs → promotions → briefs |
+| AI Visibility | Python (OpenAI + Anthropic APIs) | DO droplet | Queries LLMs for Synup + competitor mentions across 15 keywords |
 
 ## Repo Structure (synup/markops)
 
@@ -30,9 +31,12 @@ markops/
 │   │   │   │   ├── audit/     ← Adwords audit view (6 tabs: Search Terms, Negatives, Expansion, Pause, Issues, Activity Log)
 │   │   │   │   ├── campaigns/ ← Campaign analytics (pulls from campaign_metrics or audit report fallback)
 │   │   │   │   ├── keywords/  ← Negative keyword management
-│   │   │   │   ├── research/  ← Reddit Research (4 tabs: Tool Ideas, Content Ideas, Feed, Agents)
-│   │   │   │   └── settings/  ← User profile + Audit Scheduler + User Management (admin only)
-│   │   │   └── api/auth/      ← OAuth callback
+│   │   │   │   ├── research/       ← Reddit Research (4 tabs: Tool Ideas, Content Ideas, Feed, Agents)
+│   │   │   │   ├── ai-visibility/ ← AI Visibility Tracker (4 tabs: OpenAI Results, Claude Results, Keywords, Competitors)
+│   │   │   │   └── settings/      ← User profile + Audit Scheduler + User Management (admin only)
+│   │   │   └── api/
+│   │   │       ├── auth/              ← OAuth callback
+│   │   │       └── ai-visibility/run/ ← GET latest run status, POST trigger new run
 │   │   ├── components/
 │   │   │   ├── ui/            ← Reusable UI atoms (ScoreGauge, StatCard, StatusBadge, etc.)
 │   │   │   ├── layout/        ← Sidebar, Topbar
@@ -41,9 +45,10 @@ markops/
 │   │   │       ├── campaigns/ ← CampaignTable
 │   │   │       ├── keywords/  ← GroupedKeywordRow, NegativeKeywordRow, NegativeKeywordsList, KeywordExpansionRow
 │   │   │       ├── research/  ← 26 components: ToolIdeasList, ContentIdeasList, ToolIdeaRow, ContentIdeaRow, FeedTab, FeedSourceManager, FeedSourceRow, AddFeedForm, AgentsTab, AgentCard, AgentEditor, PipelineStatus, ResearchStatsHeader, ResearchActivityLog, SubredditSuggestionsList, ScoreBar, PostPreview, ReclassifyButton, ReclassifyToast, ScoreNowButton, GenerateButton, ToolSpecViewer, ContentBriefViewer, FeedbackSummary, ExportCsvButton, PromptSuggestions, BrandAlertBanner
+│   │   │       ├── ai-visibility/ ← RunControls, SynupResultsTable, SynupRow, CompetitorResultsTable, KeywordManager, KeywordRow, CompetitorManager, CompetitorRow (9 components)
 │   │   │       ├── schedule/  ← ScheduleDisplay, ScheduleForm, TimezoneSelect
 │   │   │       └── users/     ← UserManagement, UserRow
-│   │   ├── hooks/             ← useAuth, useAuditData, useAuditTrigger, useAuditSchedule, useCampaigns, useSearchTerms, useUsers, useKeywordActions, useRedditResearch (10 sub-hooks)
+│   │   ├── hooks/             ← useAuth, useAuditData, useAuditTrigger, useAuditSchedule, useCampaigns, useSearchTerms, useUsers, useKeywordActions, useRedditResearch (10 sub-hooks), useAIVisibility
 │   │   ├── lib/supabase/      ← Supabase client configs (browser, server, admin)
 │   │   └── types/             ← TypeScript interfaces
 │   ├── supabase/
@@ -54,9 +59,13 @@ markops/
 │   │   │   ├── 004_admin_and_campaigns.sql  ← Set niladri as admin + admin RLS policies
 │   │   │   ├── 005_keyword_action_log.sql   ← Audit trail table + decided_at column + insert policy safety
 │   │   │   ├── 008_reddit_research.sql      ← 7 Reddit tables (feed_sources, posts, tool/content scores, tool/content actions, subreddit_suggestions, agent_configs) + RLS + indexes
-│   │   │   └── 008b_seed_reddit_feeds.sql   ← 10 subreddit + 20 keyword_search seed feeds
+│   │   │   ├── 008b_seed_reddit_feeds.sql   ← 10 subreddit + 20 keyword_search seed feeds
+│   │   │   ├── 010_ai_visibility.sql        ← 3 tables (ai_visibility_keywords, ai_visibility_runs, ai_visibility_results) + RLS + indexes + updated_at trigger
+│   │   │   └── 010b_seed_ai_visibility_keywords.sql ← 15 seed keywords across 5 categories
 │   │   ├── push_to_supabase.py              ← Pushes audit JSON → Supabase (6 sections)
 │   │   ├── poll_audit_requests.py           ← Polls for on-demand + scheduled audits
+│   │   ├── fetch_ai_visibility.py           ← Queries GPT-4o + Claude Sonnet for 15 keywords, parses Synup + competitor mentions, writes to ai_visibility_results
+│   │   ├── run_ai_visibility.sh             ← Cron wrapper: checks schedule frequency, triggers fetch if enough time elapsed
 │   │   └── run_weekly_audit.sh              ← Legacy cron runner (replaced by scheduler)
 │   ├── MARKETING_HQ_USER_GUIDE.docx  ← End-user guide (9 sections: Getting Started, Dashboard, Audits, Keywords, Campaigns, API/Clawbot, Settings, Troubleshooting)
 │   ├── MARKETING_HQ_ROADMAP.docx     ← Product roadmap + contributor best practices + AI assistant instructions (12 pages)
@@ -88,7 +97,7 @@ markops/
 - **Font**: System fonts (-apple-system, Inter)
 - **Component rule**: No component > 150 lines. UI separated from logic via hooks.
 
-## Database Tables (24 total, 9 migrations)
+## Database Tables (28 total, 11 migrations)
 
 | Table | Purpose | Written By |
 |-------|---------|-----------|
@@ -116,6 +125,10 @@ markops/
 | `reddit_feedback_log` | Tracks all approve/reject/reclassify actions with metadata | Dashboard (auto-logged) |
 | `reddit_score_requests` | On-demand scoring triggers (pending→completed, polled by droplet) | Dashboard → Droplet |
 | `reddit_spec_requests` | On-demand spec/brief generation triggers (request_type: tool_spec/content_brief, polled by droplet) | Dashboard → Droplet |
+| `ai_visibility_keywords` | Keywords to query LLMs for (15 seeded, 5 categories, is_active toggle) | Dashboard users |
+| `ai_visibility_runs` | Run metadata (status, models_queried, estimated_cost, trigger_source, schedule_frequency) | Droplet + Dashboard |
+| `ai_visibility_results` | Per keyword × model × repetition results (synup_mentioned, synup_position, competitors_data JSONB) | Droplet (fetch_ai_visibility.py) |
+| `ai_visibility_competitors` | Competitor names + variations text[] for case-insensitive matching (12 seeded) | Dashboard users |
 
 ## Approval Workflow
 
@@ -135,7 +148,7 @@ markops/
 
 - **Project name**: Adwords
 - **URL**: `https://bgxgukkriymmtlzkkjkg.supabase.co`
-- **Migrations 001–008b have all been run**
+- **Migrations 001–010b have all been run** (009 = tally_leads, 010/010b = AI visibility)
 - **Google OAuth configured** with @synup.com domain restriction
 - **Redirect URLs**: `https://marketing-hq-nine.vercel.app/api/auth/callback` and `http://localhost:3000/api/auth/callback`
 
@@ -153,23 +166,25 @@ markops/
 - **Project dir**: `/opt/google-ads-auditor`
 - **Deployed scripts (Ads)**: `push_to_supabase.py`, `poll_audit_requests.py`, `push_negatives_to_ads.py`, `fetch_campaign_metrics.py`
 - **Deployed scripts (Reddit)**: `reddit_rss_poller.py`, `score_posts.py`, `generate_tool_specs.py`, `generate_promotions.py`, `generate_briefs.py` (in `/opt/reddit-research-tool/`)
+- **Deployed scripts (AI Visibility)**: `fetch_ai_visibility.py`, `run_ai_visibility.sh`
 - **Cron (Ads)**: `*/5 * * * *` polls for on-demand audits + scheduled audits + push-to-ads requests
 - **Cron (Ads daily 2am)**: `fetch_campaign_metrics.py --days 1` (sources .env, logs to /var/log/campaign_metrics.log)
 - **Cron (Reddit)**: 9 jobs — RSS poller (every 30min), score_posts (hourly), generate_tool_specs (every 2h), generate_promotions (every 4h), generate_briefs (every 4h), subreddit_suggester (daily), feed_enricher (every 6h), poll_score_requests (*/5), poll_spec_requests (*/5)
+- **Cron (AI Visibility)**: `0 6 * * *` — daily 6am check via `run_ai_visibility.sh`, only runs if enough time elapsed based on schedule_frequency (default: 2x-week = every 3 days)
 - **All 6 Reddit scripts read agent configs from Supabase** (`reddit_agent_configs` table) for system prompts, model, temperature. tool_builder and brief_builder upgraded to Sonnet.
 - **Swap**: 1GB swap file added (droplet only has 1GB RAM)
-- **Env vars in `/opt/google-ads-auditor/.env`**: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_ADS_CUSTOMER_ID, GOOGLE_ADS_LOGIN_CUSTOMER_ID, plus Google Ads OAuth credentials
+- **Env vars in `/opt/google-ads-auditor/.env`**: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_ADS_CUSTOMER_ID, GOOGLE_ADS_LOGIN_CUSTOMER_ID, OPENAI_API_KEY, ANTHROPIC_API_KEY, plus Google Ads OAuth credentials
 - **Google Ads account**: Synup USA - Agency (185 campaigns, 36,896 keywords)
 - **Patch applied**: `google_ads_client.py` line ~371 — added `campaign.status` to fetch_extensions SELECT clause
 
-## Current State (2026-03-17)
+## Current State (2026-03-21)
 
 ### Completed
 - Next.js project scaffolded with all core files
 - Supabase database with 24 tables (migrations 001-008b all run, reddit_score_requests + reddit_spec_requests created manually)
 - Google OAuth working (tested — login successful on both localhost and Vercel)
-- Dashboard pages: Home, Audit (8 tabs), Campaigns, Keywords, Research (4 tabs), Settings
-- Data hooks: useAuth, useAuditData, useAuditTrigger, useAuditSchedule, useCampaigns, useSearchTerms, useUsers, useKeywordActions, usePushToAds, useChangelog, useRedditResearch (11 sub-hooks)
+- Dashboard pages: Home, Audit (8 tabs), Campaigns, Keywords, Research (4 tabs), AI Visibility (4 tabs), Settings
+- Data hooks: useAuth, useAuditData, useAuditTrigger, useAuditSchedule, useCampaigns, useSearchTerms, useUsers, useKeywordActions, usePushToAds, useChangelog, useRedditResearch (11 sub-hooks), useAIVisibility
 - Push-to-Supabase script with search terms support (key mismatch fixed)
 - On-demand audit trigger (dashboard → audit_requests → droplet polls)
 - Scheduler UI (frequency/day/time/timezone picker on Settings page)
@@ -354,6 +369,33 @@ markops/
 7. Removed `metadata` column write — column doesn't exist on `negative_keywords` table, was causing PGRST204 errors
 8. Successfully pushed 735 negative keywords to Google Ads campaigns
 9. Bulk-updated all 735 from `approved` → `pushed` status in Supabase (status wasn't updating due to metadata bug)
+
+### 2026-03-21 — AI Visibility Tracker Session
+**Database (migration 010):**
+1. `ai_visibility_keywords` — 15 seed keywords across 5 categories (listing management, reputation, local SEO, social/pages, competitive)
+2. `ai_visibility_runs` — run metadata with status, models_queried, estimated_cost, trigger_source, schedule_frequency
+3. `ai_visibility_results` — per keyword × model × repetition results with synup_mentioned, synup_position, competitors_data JSONB, all_urls_found
+4. `ai_visibility_competitors` — 12 competitors with name + variations text[] for case-insensitive matching (created directly in Supabase)
+
+**Python fetcher (droplet):**
+5. `fetch_ai_visibility.py` — queries GPT-4o + Claude Sonnet for each keyword (3 reps each), parses responses for Synup + 12 competitor mentions/positions/URLs, writes results in batches of 25
+6. `run_ai_visibility.sh` — cron wrapper, daily 6am check, reads schedule_frequency from last run (default 2x-week), logs to /var/log/ai_visibility.log
+7. Competitors pulled dynamically from `ai_visibility_competitors` table (not hardcoded), domain inferred from variations array
+
+**API route:**
+8. `/api/ai-visibility/run` — GET returns latest run status, POST creates pending run record (TODO: wire up droplet trigger)
+
+**React hook:**
+9. `useAIVisibility.ts` — Synup summaries per model (majority-vote mentioned, avg position, delta from previous run, deduplicated URLs), competitor summaries per model (mention rate %, avg position, delta, top URLs), keyword/competitor CRUD, run history, triggerRun
+
+**Dashboard page + components:**
+10. `/ai-visibility` page with 4 tabs: OpenAI Results, Claude Results, Keywords, Competitors
+11. 9 components in `src/components/features/ai-visibility/`: RunControls, SynupResultsTable, SynupRow, CompetitorResultsTable, KeywordManager, KeywordRow, CompetitorManager, CompetitorRow (all under 150 lines)
+12. Sidebar updated with "AI Visibility" nav item (◉ icon)
+13. 7 new TypeScript types: AIVisibilityKeyword, AIVisibilityRun, AIVisibilityResult, CompetitorMention, AIVisibilityCompetitor, SynupKeywordSummary, CompetitorSummary
+
+**First production run:**
+14. Run ID: 998817ec-7c1c-4541-a3bd-52ca5578af8c — 15 keywords × 2 models × 3 reps = 90 queries completed
 
 ## Rules for Future Sessions
 1. **Components < 150 lines** — split if exceeding

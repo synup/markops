@@ -365,3 +365,77 @@ export interface LeadsDailySummary {
   book_a_demo: number
   contact_us: number
 }
+
+// ── AI Visibility types ─────────────────────────────
+
+export interface AIVisibilityKeyword {
+  id: string
+  keyword: string
+  category: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface AIVisibilityRun {
+  id: string
+  started_at: string | null
+  completed_at: string | null
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  total_keywords: number | null
+  models_queried: string[] | null
+  reps_per_keyword: number
+  estimated_cost: number | null
+  trigger_source: 'manual' | 'scheduled' | null
+  schedule_frequency: string | null
+}
+
+export interface AIVisibilityResult {
+  id: string
+  run_id: string
+  keyword_id: string
+  keyword_text: string
+  model: string
+  repetition: number
+  full_response: string | null
+  synup_mentioned: boolean
+  synup_position: number | null
+  synup_urls_cited: string[] | null
+  competitors_data: Record<string, CompetitorMention> | null
+  all_urls_found: string[] | null
+  response_tokens: number | null
+  created_at: string
+}
+
+export interface CompetitorMention {
+  name: string
+  mentioned: boolean
+  position: number | null
+  urls: string[]
+}
+
+export interface AIVisibilityCompetitor {
+  id: string
+  name: string
+  variations: string[]
+  is_active: boolean
+  created_at: string
+}
+
+export interface SynupKeywordSummary {
+  keyword_id: string
+  keyword_text: string
+  category: string
+  mentioned: boolean
+  avg_position: number | null
+  position_change: number | null
+  cited_urls: string[]
+}
+
+export interface CompetitorSummary {
+  name: string
+  mention_rate: number
+  avg_position: number | null
+  position_change: number | null
+  top_urls: string[]
+}

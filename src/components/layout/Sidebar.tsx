@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { label: 'Keywords', href: '/keywords', icon: '⌕' },
   { label: 'Leads', href: '/leads', icon: '◆' },
   { label: 'Reddit', href: '/research', icon: '◈' },
+  { label: 'AI Visibility', href: '/ai-visibility', icon: '◉' },
   { label: 'pSEO Content', href: '/pseo-content', icon: '◎' },
   { label: 'Error Logs', href: '/errors', icon: '⚠' },
   { label: 'Settings', href: '/settings', icon: '⚙' },

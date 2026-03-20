@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { label: 'Leads', href: '/leads', icon: '◆' },
   { label: 'Reddit', href: '/research', icon: '◈' },
   { label: 'pSEO Content', href: '/pseo-content', icon: '◎' },
+  { label: 'Error Logs', href: '/errors', icon: '⚠' },
   { label: 'Settings', href: '/settings', icon: '⚙' },
 ]
 

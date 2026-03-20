@@ -6,16 +6,25 @@ Runs on the DigitalOcean droplet via cron every 5 minutes.
 
 import json
 import os
+import sys
 import subprocess
 import glob
 from datetime import datetime, timezone
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 
+# Add the supabase directory to path so we can import error_logger
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from error_logger import ErrorLogger
+
 SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
 SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
 PROJECT_DIR = '/opt/google-ads-auditor'
 VENV_PYTHON = '{}/venv/bin/python'.format(PROJECT_DIR)
+
+# Initialize loggers for each job type
+audit_logger = ErrorLogger('audit_poller')
+push_logger = ErrorLogger('push_to_ads')
 
 
 def api_request(method, table, params='', payload=None):
@@ -47,6 +56,7 @@ def check_pending():
         return rows[0] if rows else None
     except Exception as e:
         print("[{}] Error checking requests: {}".format(now(), e))
+        audit_logger.log_exception('Failed to check pending audit requests', e)
         return None
 
 
@@ -70,6 +80,7 @@ def check_schedules():
         return False
     except Exception as e:
         print("[{}] Error checking schedules: {}".format(now(), e))
+        audit_logger.log_exception('Failed to check audit schedules', e)
         return False
 
 
@@ -136,6 +147,7 @@ def create_request_from_schedule(schedule, utc_now):
         )
     except Exception as e:
         print("[{}] Error creating scheduled request: {}".format(now(), e))
+        audit_logger.log_exception('Failed to create scheduled audit request', e)
 
 
 def update_request(request_id, updates):
@@ -144,6 +156,9 @@ def update_request(request_id, updates):
         api_request('PATCH', 'audit_requests', '?id=eq.{}'.format(request_id), updates)
     except Exception as e:
         print("[{}] Error updating request {}: {}".format(now(), request_id, e))
+        audit_logger.log_exception(
+            'Failed to update audit request {}'.format(request_id), e
+        )
 
 
 def run_audit(request_id):
@@ -164,6 +179,12 @@ def run_audit(request_id):
         if result.returncode != 0:
             error = result.stderr[:500] if result.stderr else 'Unknown error'
             print("[{}] Audit failed: {}".format(now(), error))
+            audit_logger.log_error(
+                'Audit run failed for request {}'.format(request_id),
+                {'stderr': result.stderr[:2000] if result.stderr else '',
+                 'stdout': result.stdout[:1000] if result.stdout else '',
+                 'return_code': result.returncode}
+            )
             update_request(request_id, {
                 'status': 'failed',
                 'completed_at': datetime.utcnow().isoformat(),
@@ -173,6 +194,10 @@ def run_audit(request_id):
 
         reports = sorted(glob.glob('{}/reports/google_ads_audit_*.json'.format(PROJECT_DIR)))
         if not reports:
+            audit_logger.log_error(
+                'No report file generated for request {}'.format(request_id),
+                {'stdout': result.stdout[:1000] if result.stdout else ''}
+            )
             update_request(request_id, {
                 'status': 'failed',
                 'completed_at': datetime.utcnow().isoformat(),
@@ -191,6 +216,11 @@ def run_audit(request_id):
 
         if push_result.returncode != 0:
             error = push_result.stderr[:500] if push_result.stderr else 'Push failed'
+            audit_logger.log_error(
+                'Supabase push failed for request {}'.format(request_id),
+                {'stderr': push_result.stderr[:2000] if push_result.stderr else '',
+                 'report_file': latest}
+            )
             update_request(request_id, {
                 'status': 'failed',
                 'completed_at': datetime.utcnow().isoformat(),
@@ -205,12 +235,19 @@ def run_audit(request_id):
         print("[{}] Audit completed successfully".format(now()))
 
     except subprocess.TimeoutExpired:
+        audit_logger.log_critical(
+            'Audit timed out for request {}'.format(request_id),
+            {'timeout_seconds': 300}
+        )
         update_request(request_id, {
             'status': 'failed',
             'completed_at': datetime.utcnow().isoformat(),
             'error_message': 'Audit timed out after 5 minutes',
         })
     except Exception as e:
+        audit_logger.log_exception(
+            'Unexpected error during audit request {}'.format(request_id), e
+        )
         update_request(request_id, {
             'status': 'failed',
             'completed_at': datetime.utcnow().isoformat(),
@@ -228,6 +265,7 @@ def check_push_requests():
         return rows[0] if rows else None
     except Exception as e:
         print("[{}] Error checking push requests: {}".format(now(), e))
+        push_logger.log_exception('Failed to check push requests', e)
         return None
 
 
@@ -237,6 +275,9 @@ def update_push_request(request_id, updates):
         api_request('PATCH', 'push_requests', '?id=eq.{}'.format(request_id), updates)
     except Exception as e:
         print("[{}] Error updating push request {}: {}".format(now(), request_id, e))
+        push_logger.log_exception(
+            'Failed to update push request {}'.format(request_id), e
+        )
 
 
 def run_push_to_ads(request_id):
@@ -268,6 +309,12 @@ def run_push_to_ads(request_id):
         if result.returncode != 0:
             error = result.stderr[:500] if result.stderr else 'Unknown error'
             print("[{}] Push failed: {}".format(now(), error))
+            push_logger.log_error(
+                'Push-to-ads failed for request {}'.format(request_id),
+                {'stderr': result.stderr[:2000] if result.stderr else '',
+                 'stdout': output[:1000],
+                 'pushed': pushed, 'failed': failed}
+            )
             update_push_request(request_id, {
                 'status': 'failed',
                 'pushed_count': pushed,
@@ -286,12 +333,19 @@ def run_push_to_ads(request_id):
         print("[{}] Push completed: {} pushed, {} failed".format(now(), pushed, failed))
 
     except subprocess.TimeoutExpired:
+        push_logger.log_critical(
+            'Push-to-ads timed out for request {}'.format(request_id),
+            {'timeout_seconds': 300}
+        )
         update_push_request(request_id, {
             'status': 'failed',
             'error_log': 'Push timed out after 5 minutes',
             'completed_at': datetime.utcnow().isoformat(),
         })
     except Exception as e:
+        push_logger.log_exception(
+            'Unexpected error during push request {}'.format(request_id), e
+        )
         update_push_request(request_id, {
             'status': 'failed',
             'error_log': str(e)[:500],
@@ -300,6 +354,9 @@ def run_push_to_ads(request_id):
 
 
 if __name__ == '__main__':
+    # Send heartbeat for the poller itself
+    audit_logger.heartbeat()
+
     # First check on-demand audit requests
     pending = check_pending()
     if pending:

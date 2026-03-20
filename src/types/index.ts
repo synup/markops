@@ -299,6 +299,28 @@ export interface PseoSortConfig {
 
 export type PseoColumnFilters = Partial<Record<keyof PseoArticle, string>>
 
+// ── Error Logs & Job Heartbeats ────────────────────
+
+export interface ErrorLog {
+  id: number
+  job_name: string
+  severity: 'error' | 'warning' | 'critical'
+  message: string
+  details: Record<string, unknown>
+  resolved: boolean
+  created_at: string
+}
+
+export interface JobHeartbeat {
+  id: number
+  job_name: string
+  last_seen_at: string
+  status: 'ok' | 'error' | 'timeout'
+  run_count: number
+  last_error: string | null
+  created_at: string
+}
+
 // ── Tally Leads types ────────────────────────────────
 
 export interface TallyLead {

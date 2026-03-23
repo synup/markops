@@ -1,6 +1,6 @@
 # Marketing HQ — Project Context
 
-> Updated end of session 2026-03-21. This file is the single source of truth for continuing work on this project.
+> Updated end of session 2026-03-23. This file is the single source of truth for continuing work on this project.
 
 ## What This Is
 
@@ -17,7 +17,7 @@
 | Auth | Supabase Auth + Google OAuth | Supabase | Restricted to @synup.com emails |
 | API | Supabase REST API | Supabase | For Clawbot / CEO daily data access (service_role key) |
 | Reddit Research | Python (CrewAI agents) | DO droplet | 6-agent pipeline: RSS polling → scoring → tool specs → promotions → briefs |
-| AI Visibility | Python (OpenAI + Anthropic APIs) | DO droplet | Queries LLMs for Synup + competitor mentions across 15 keywords |
+| AI Visibility | Python (OpenAI + Anthropic APIs) | DO droplet | Queries LLMs for Synup + competitor mentions across 15 keywords, pending-run polling every 2 min |
 
 ## Repo Structure (synup/markops)
 
@@ -45,7 +45,7 @@ markops/
 │   │   │       ├── campaigns/ ← CampaignTable
 │   │   │       ├── keywords/  ← GroupedKeywordRow, NegativeKeywordRow, NegativeKeywordsList, KeywordExpansionRow
 │   │   │       ├── research/  ← 26 components: ToolIdeasList, ContentIdeasList, ToolIdeaRow, ContentIdeaRow, FeedTab, FeedSourceManager, FeedSourceRow, AddFeedForm, AgentsTab, AgentCard, AgentEditor, PipelineStatus, ResearchStatsHeader, ResearchActivityLog, SubredditSuggestionsList, ScoreBar, PostPreview, ReclassifyButton, ReclassifyToast, ScoreNowButton, GenerateButton, ToolSpecViewer, ContentBriefViewer, FeedbackSummary, ExportCsvButton, PromptSuggestions, BrandAlertBanner
-│   │   │       ├── ai-visibility/ ← RunControls, SynupResultsTable, SynupRow, CompetitorResultsTable, KeywordManager, KeywordRow, CompetitorManager, CompetitorRow (9 components)
+│   │   │       ├── ai-visibility/ ← RunControls, SynupResultsTable, SynupRow, SynupRowHistory, CompetitorResultsTable, KeywordManager, KeywordRow, CompetitorManager, CompetitorRow, ExportCSVButton, LoadingSkeleton (11 components)
 │   │   │       ├── schedule/  ← ScheduleDisplay, ScheduleForm, TimezoneSelect
 │   │   │       └── users/     ← UserManagement, UserRow
 │   │   ├── hooks/             ← useAuth, useAuditData, useAuditTrigger, useAuditSchedule, useCampaigns, useSearchTerms, useUsers, useKeywordActions, useRedditResearch (10 sub-hooks), useAIVisibility
@@ -61,11 +61,12 @@ markops/
 │   │   │   ├── 008_reddit_research.sql      ← 7 Reddit tables (feed_sources, posts, tool/content scores, tool/content actions, subreddit_suggestions, agent_configs) + RLS + indexes
 │   │   │   ├── 008b_seed_reddit_feeds.sql   ← 10 subreddit + 20 keyword_search seed feeds
 │   │   │   ├── 010_ai_visibility.sql        ← 3 tables (ai_visibility_keywords, ai_visibility_runs, ai_visibility_results) + RLS + indexes + updated_at trigger
-│   │   │   └── 010b_seed_ai_visibility_keywords.sql ← 15 seed keywords across 5 categories
+│   │   │   ├── 010b_seed_ai_visibility_keywords.sql ← 15 seed keywords across 5 categories
+│   │   │   └── 011_ai_visibility_config.sql ← Config table (key/value) for schedule frequency persistence
 │   │   ├── push_to_supabase.py              ← Pushes audit JSON → Supabase (6 sections)
 │   │   ├── poll_audit_requests.py           ← Polls for on-demand + scheduled audits
-│   │   ├── fetch_ai_visibility.py           ← Queries GPT-4o + Claude Sonnet for 15 keywords, parses Synup + competitor mentions, writes to ai_visibility_results
-│   │   ├── run_ai_visibility.sh             ← Cron wrapper: checks schedule frequency, triggers fetch if enough time elapsed
+│   │   ├── fetch_ai_visibility.py           ← Queries GPT-4o + Claude Sonnet for 15 keywords, parses Synup + competitor mentions, writes to ai_visibility_results. Accepts --run-id for pending run pickup
+│   │   ├── run_ai_visibility.sh             ← Cron wrapper: --check-pending mode (*/2) picks up pending runs; default mode checks schedule frequency from config table
 │   │   └── run_weekly_audit.sh              ← Legacy cron runner (replaced by scheduler)
 │   ├── MARKETING_HQ_USER_GUIDE.docx  ← End-user guide (9 sections: Getting Started, Dashboard, Audits, Keywords, Campaigns, API/Clawbot, Settings, Troubleshooting)
 │   ├── MARKETING_HQ_ROADMAP.docx     ← Product roadmap + contributor best practices + AI assistant instructions (12 pages)
@@ -97,7 +98,7 @@ markops/
 - **Font**: System fonts (-apple-system, Inter)
 - **Component rule**: No component > 150 lines. UI separated from logic via hooks.
 
-## Database Tables (28 total, 11 migrations)
+## Database Tables (29 total, 12 migrations)
 
 | Table | Purpose | Written By |
 |-------|---------|-----------|
@@ -129,6 +130,7 @@ markops/
 | `ai_visibility_runs` | Run metadata (status, models_queried, estimated_cost, trigger_source, schedule_frequency) | Droplet + Dashboard |
 | `ai_visibility_results` | Per keyword × model × repetition results (synup_mentioned, synup_position, competitors_data JSONB) | Droplet (fetch_ai_visibility.py) |
 | `ai_visibility_competitors` | Competitor names + variations text[] for case-insensitive matching (12 seeded) | Dashboard users |
+| `ai_visibility_config` | Key/value config (schedule_frequency) for persisting schedule settings | Dashboard + shell script |
 
 ## Approval Workflow
 
@@ -148,7 +150,7 @@ markops/
 
 - **Project name**: Adwords
 - **URL**: `https://bgxgukkriymmtlzkkjkg.supabase.co`
-- **Migrations 001–010b have all been run** (009 = tally_leads, 010/010b = AI visibility)
+- **Migrations 001–011 have all been run** (009 = tally_leads, 010/010b = AI visibility, 011 = AI visibility config)
 - **Google OAuth configured** with @synup.com domain restriction
 - **Redirect URLs**: `https://marketing-hq-nine.vercel.app/api/auth/callback` and `http://localhost:3000/api/auth/callback`
 
@@ -170,14 +172,15 @@ markops/
 - **Cron (Ads)**: `*/5 * * * *` polls for on-demand audits + scheduled audits + push-to-ads requests
 - **Cron (Ads daily 2am)**: `fetch_campaign_metrics.py --days 1` (sources .env, logs to /var/log/campaign_metrics.log)
 - **Cron (Reddit)**: 9 jobs — RSS poller (every 30min), score_posts (hourly), generate_tool_specs (every 2h), generate_promotions (every 4h), generate_briefs (every 4h), subreddit_suggester (daily), feed_enricher (every 6h), poll_score_requests (*/5), poll_spec_requests (*/5)
-- **Cron (AI Visibility)**: `0 6 * * *` — daily 6am check via `run_ai_visibility.sh`, only runs if enough time elapsed based on schedule_frequency (default: 2x-week = every 3 days)
+- **Cron (AI Visibility)**: `0 6 * * *` — daily 6am check via `run_ai_visibility.sh`, only runs if enough time elapsed based on schedule_frequency from config table (default: 2x-week = every 3 days)
+- **Cron (AI Visibility pending)**: `*/2 * * * *` — `run_ai_visibility.sh --check-pending` polls for pending runs created by "Run Now" button, picks up and executes them
 - **All 6 Reddit scripts read agent configs from Supabase** (`reddit_agent_configs` table) for system prompts, model, temperature. tool_builder and brief_builder upgraded to Sonnet.
 - **Swap**: 1GB swap file added (droplet only has 1GB RAM)
 - **Env vars in `/opt/google-ads-auditor/.env`**: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_ADS_CUSTOMER_ID, GOOGLE_ADS_LOGIN_CUSTOMER_ID, OPENAI_API_KEY, ANTHROPIC_API_KEY, plus Google Ads OAuth credentials
 - **Google Ads account**: Synup USA - Agency (185 campaigns, 36,896 keywords)
 - **Patch applied**: `google_ads_client.py` line ~371 — added `campaign.status` to fetch_extensions SELECT clause
 
-## Current State (2026-03-21)
+## Current State (2026-03-23)
 
 ### Completed
 - Next.js project scaffolded with all core files
@@ -396,6 +399,35 @@ markops/
 
 **First production run:**
 14. Run ID: 998817ec-7c1c-4541-a3bd-52ca5578af8c — 15 keywords × 2 models × 3 reps = 90 queries completed
+
+### 2026-03-23 — AI Visibility Day 5 Polish Session
+**Run Now via Supabase polling:**
+1. `run_ai_visibility.sh` now supports `--check-pending` mode — queries for `status='pending'` runs and executes them via `fetch_ai_visibility.py --run-id <UUID>`
+2. `fetch_ai_visibility.py` accepts `--run-id` argument to pick up existing pending runs (marks them as `running`, proceeds normally). Uses `argparse` for CLI args
+3. New cron entry: `*/2 * * * * run_ai_visibility.sh --check-pending` — "Run Now" button creates pending record, droplet picks it up within 2 minutes
+
+**Frequency config persistence:**
+4. Migration 011: `ai_visibility_config` table (key/value/updated_at) with `schedule_frequency='2x-week'` seed
+5. `RunControls` frequency dropdown now reads from and writes to config table via `useAIVisibility` hook (`fetchFrequency`, `updateFrequency`)
+6. Shell script reads frequency from config table instead of last run record
+
+**Expandable rows with position history:**
+7. `SynupRow` is now clickable — expands to show `SynupRowHistory` mini table (Run Date | Position | Change)
+8. `fetchPositionHistory(keywordId, model)` in hook queries last 10 completed runs, computes per-run avg position + delta
+9. History loaded lazily on first expand, cached for subsequent toggles
+
+**Loading states and error handling:**
+10. `LoadingSkeleton.tsx` — `TableSkeleton` (animated pulse rows), `EmptyState` ("No data yet — trigger your first run"), `ErrorBanner` (red with Retry button)
+11. All Supabase fetches in hook now throw descriptive errors on failure; results fetch wrapped in `.catch()`
+12. Page shows skeletons during loading, contextual empty states when no runs or no results for a model
+
+**CSV export:**
+13. `ExportCSVButton.tsx` — shared component with proper CSV escaping (commas, quotes, newlines), triggers browser download with date-stamped filename
+14. Added to both `SynupResultsTable` and `CompetitorResultsTable` header bars
+
+**Security audit:**
+15. Confirmed no hardcoded secrets in any tracked files — all credentials via env vars
+16. `.gitignore` properly excludes `.env`, `.env.local`, `.env.*.local`
 
 ## Rules for Future Sessions
 1. **Components < 150 lines** — split if exceeding

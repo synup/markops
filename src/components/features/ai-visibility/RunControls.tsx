@@ -9,6 +9,8 @@ interface RunControlsProps {
   onSelectRun: (id: string) => void
   onTriggerRun: () => void
   triggering: boolean
+  frequency: string
+  onFrequencyChange: (freq: string) => void
 }
 
 const FREQUENCIES = ['daily', '2x-week', 'weekly', 'manual'] as const
@@ -20,6 +22,8 @@ export function RunControls({
   onSelectRun,
   onTriggerRun,
   triggering,
+  frequency,
+  onFrequencyChange,
 }: RunControlsProps) {
   const runDate = latestRun?.completed_at
     ? new Date(latestRun.completed_at).toLocaleDateString('en-US', {
@@ -58,6 +62,22 @@ export function RunControls({
           )}
         </div>
       )}
+
+      {/* Frequency selector */}
+      <select
+        value={frequency}
+        onChange={e => onFrequencyChange(e.target.value)}
+        className="rounded px-2 py-1 text-xs"
+        style={{
+          background: 'var(--surface-2)',
+          color: 'var(--text)',
+          border: '1px solid var(--border)',
+        }}
+      >
+        {FREQUENCIES.map(f => (
+          <option key={f} value={f}>{f}</option>
+        ))}
+      </select>
 
       {/* Run picker */}
       <select

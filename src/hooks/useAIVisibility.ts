@@ -154,6 +154,16 @@ function groupByModel(results: AIVisibilityResult[]): Record<string, AIVisibilit
 }
 
 // ---------------------------------------------------------------------------
+// History row type (for expandable rows)
+// ---------------------------------------------------------------------------
+
+export interface PositionHistoryRow {
+  run_date: string
+  avg_position: number | null
+  change: number | null
+}
+
+// ---------------------------------------------------------------------------
 // Main hook
 // ---------------------------------------------------------------------------
 
@@ -169,15 +179,39 @@ export function useAIVisibility(selectedRunId?: string) {
   const [competitorSummaries, setCompetitorSummaries] = useState<Record<string, CompetitorSummary[]>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [frequency, setFrequency] = useState('2x-week')
+
+  // ── Fetch config ────────────────────────────────────
+
+  const fetchFrequency = useCallback(async () => {
+    const { data, error: err } = await supabase
+      .from('ai_visibility_config')
+      .select('value')
+      .eq('key', 'schedule_frequency')
+      .maybeSingle()
+    if (err) throw new Error(`Failed to load config: ${err.message}`)
+    if (data?.value) setFrequency(data.value)
+  }, [])
+
+  const updateFrequency = useCallback(async (freq: string) => {
+    setFrequency(freq)
+    const { error: err } = await supabase
+      .from('ai_visibility_config')
+      .upsert({ key: 'schedule_frequency', value: freq, updated_at: new Date().toISOString() })
+    if (err) {
+      setError(`Failed to save frequency: ${err.message}`)
+    }
+  }, [])
 
   // ── Fetch runs ──────────────────────────────────────
 
   const fetchRuns = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error: err } = await supabase
       .from('ai_visibility_runs')
       .select('*')
       .order('started_at', { ascending: false })
       .limit(50)
+    if (err) throw new Error(`Failed to load runs: ${err.message}`)
     setRuns(data ?? [])
     if (data?.length) setLatestRun(data[0])
   }, [])
@@ -185,31 +219,34 @@ export function useAIVisibility(selectedRunId?: string) {
   // ── Fetch keywords ─────────────────────────────────
 
   const fetchKeywords = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error: err } = await supabase
       .from('ai_visibility_keywords')
       .select('*')
       .order('category')
       .order('keyword')
+    if (err) throw new Error(`Failed to load keywords: ${err.message}`)
     setKeywords(data ?? [])
   }, [])
 
   // ── Fetch competitors ──────────────────────────────
 
   const fetchCompetitors = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error: err } = await supabase
       .from('ai_visibility_competitors')
       .select('*')
       .order('name')
+    if (err) throw new Error(`Failed to load competitors: ${err.message}`)
     setCompetitors(data ?? [])
   }, [])
 
   // ── Fetch results + compute summaries ──────────────
 
   const fetchResults = useCallback(async (runId: string) => {
-    const { data: currentResults } = await supabase
+    const { data: currentResults, error: err } = await supabase
       .from('ai_visibility_results')
       .select('*')
       .eq('run_id', runId)
+    if (err) throw new Error(`Failed to load results: ${err.message}`)
     setResults(currentResults ?? [])
 
     // Find previous run for delta comparison
@@ -233,18 +270,84 @@ export function useAIVisibility(selectedRunId?: string) {
     return { currentResults: currentResults ?? [], previousResults }
   }, [])
 
+  // ── Fetch position history for a keyword+model ────
+
+  const fetchPositionHistory = useCallback(async (
+    keywordId: string,
+    model: string
+  ): Promise<PositionHistoryRow[]> => {
+    // Get last 10 completed runs
+    const { data: completedRuns } = await supabase
+      .from('ai_visibility_runs')
+      .select('id, completed_at')
+      .eq('status', 'completed')
+      .order('completed_at', { ascending: false })
+      .limit(10)
+
+    if (!completedRuns?.length) return []
+
+    const runIds = completedRuns.map(r => r.id)
+    const { data: histResults } = await supabase
+      .from('ai_visibility_results')
+      .select('run_id, synup_position')
+      .eq('keyword_id', keywordId)
+      .eq('model', model)
+      .in('run_id', runIds)
+
+    if (!histResults?.length) return []
+
+    // Group by run, compute avg position per run
+    const byRun: Record<string, number[]> = {}
+    for (const r of histResults) {
+      if (r.synup_position != null) {
+        if (!byRun[r.run_id]) byRun[r.run_id] = []
+        byRun[r.run_id].push(r.synup_position)
+      }
+    }
+
+    const rows: PositionHistoryRow[] = []
+    for (let i = 0; i < completedRuns.length; i++) {
+      const run = completedRuns[i]
+      const positions = byRun[run.id]
+      const avg = positions?.length
+        ? Math.round((positions.reduce((a, b) => a + b, 0) / positions.length) * 10) / 10
+        : null
+
+      // Change vs next older run
+      let change: number | null = null
+      if (i < completedRuns.length - 1) {
+        const prevRun = completedRuns[i + 1]
+        const prevPositions = byRun[prevRun.id]
+        const prevAvg = prevPositions?.length
+          ? prevPositions.reduce((a, b) => a + b, 0) / prevPositions.length
+          : null
+        if (avg != null && prevAvg != null) {
+          change = Math.round((prevAvg - avg) * 10) / 10
+        }
+      }
+
+      rows.push({
+        run_date: run.completed_at ?? '',
+        avg_position: avg,
+        change,
+      })
+    }
+
+    return rows
+  }, [])
+
   // ── Initial load ───────────────────────────────────
 
   const loadAll = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      await Promise.all([fetchRuns(), fetchKeywords(), fetchCompetitors()])
+      await Promise.all([fetchRuns(), fetchKeywords(), fetchCompetitors(), fetchFrequency()])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load data')
     }
     setLoading(false)
-  }, [fetchRuns, fetchKeywords, fetchCompetitors])
+  }, [fetchRuns, fetchKeywords, fetchCompetitors, fetchFrequency])
 
   useEffect(() => { loadAll() }, [loadAll])
 
@@ -258,6 +361,8 @@ export function useAIVisibility(selectedRunId?: string) {
       const activeKeywords = keywords.filter(k => k.is_active)
       setSynupSummaries(computeSynupSummaries(currentResults, activeKeywords, previousResults))
       setCompetitorSummaries(computeCompetitorSummaries(currentResults, competitors, previousResults))
+    }).catch(e => {
+      setError(e instanceof Error ? e.message : 'Failed to load results')
     })
   }, [selectedRunId, latestRun?.id, keywords, competitors, fetchResults])
 
@@ -328,6 +433,7 @@ export function useAIVisibility(selectedRunId?: string) {
     competitorSummaries,
     loading,
     error,
+    frequency,
     // Actions
     addKeyword,
     updateKeyword,
@@ -336,6 +442,8 @@ export function useAIVisibility(selectedRunId?: string) {
     updateCompetitor,
     deactivateCompetitor,
     triggerRun,
+    updateFrequency,
+    fetchPositionHistory,
     refetch: loadAll,
   }
 }

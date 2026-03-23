@@ -5,11 +5,16 @@ AI Visibility Tracker — fetches LLM recommendations and tracks Synup mentions.
 Queries GPT-4o and Claude Sonnet for each active keyword (3 reps each),
 parses responses for Synup + competitor mentions, writes results to Supabase.
 
+Usage:
+  python fetch_ai_visibility.py                  # Create a new run (scheduled)
+  python fetch_ai_visibility.py --run-id <UUID>  # Pick up an existing pending run
+
 Requires env vars:
   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
   OPENAI_API_KEY, ANTHROPIC_API_KEY
 """
 
+import argparse
 import json
 import os
 import re
@@ -93,6 +98,18 @@ def create_run(total_keywords):
         'trigger_source': 'scheduled',
     })
     return rows[0]['id'] if rows else None
+
+
+def pick_up_pending_run(run_id):
+    """Mark an existing pending run as 'running' and return its id."""
+    now = datetime.now(timezone.utc).isoformat()
+    rows = supa_request('PATCH', 'ai_visibility_runs', f'?id=eq.{run_id}', {
+        'status': 'running',
+        'started_at': now,
+    })
+    if rows and len(rows) > 0:
+        return rows[0]['id']
+    return None
 
 
 def update_run(run_id, status, cost):
@@ -232,8 +249,13 @@ def parse_response(text, competitors):
 # Main execution
 # ---------------------------------------------------------------------------
 
-def run_visibility_check():
-    """Main entry point: fetch keywords, query models, write results."""
+def run_visibility_check(run_id=None):
+    """Main entry point: fetch keywords, query models, write results.
+
+    Args:
+        run_id: If provided, pick up this existing pending run instead of
+                creating a new one. Used by --check-pending cron.
+    """
     logger.heartbeat()
     print(f"[{datetime.now()}] Starting AI visibility check...")
 
@@ -261,14 +283,21 @@ def run_visibility_check():
     competitors = fetch_active_competitors()
     print(f"  Found {len(keywords)} active keywords, {len(competitors)} competitors")
 
-    # 2. Create run
-    run_id = create_run(len(keywords))
-    if not run_id:
-        logger.log_critical("Failed to create run record")
-        sys.exit(1)
-    print(f"  Run ID: {run_id}")
+    # 2. Create or pick up run
+    if run_id:
+        picked = pick_up_pending_run(run_id)
+        if not picked:
+            logger.log_critical(f"Failed to pick up pending run {run_id}")
+            sys.exit(1)
+        print(f"  Picked up pending run: {run_id}")
+    else:
+        run_id = create_run(len(keywords))
+        if not run_id:
+            logger.log_critical("Failed to create run record")
+            sys.exit(1)
+        print(f"  Run ID: {run_id}")
 
-    # 3. Query each keyword × model × rep
+    # 3. Query each keyword x model x rep
     results_buffer = []
     total_cost = 0.0
     total_queries = len(keywords) * len(MODELS) * REPS
@@ -328,8 +357,13 @@ def run_visibility_check():
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='AI Visibility Tracker')
+    parser.add_argument('--run-id', type=str, default=None,
+                        help='Pick up an existing pending run by ID')
+    args = parser.parse_args()
+
     try:
-        run_visibility_check()
+        run_visibility_check(run_id=args.run_id)
     except Exception as e:
         logger.log_exception("AI visibility run failed", e)
         print(f"FATAL: {e}")

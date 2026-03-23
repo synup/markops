@@ -7,6 +7,7 @@ import { SynupResultsTable } from '@/components/features/ai-visibility/SynupResu
 import { CompetitorResultsTable } from '@/components/features/ai-visibility/CompetitorResultsTable'
 import { KeywordManager } from '@/components/features/ai-visibility/KeywordManager'
 import { CompetitorManager } from '@/components/features/ai-visibility/CompetitorManager'
+import { TableSkeleton, EmptyState, ErrorBanner } from '@/components/features/ai-visibility/LoadingSkeleton'
 import { useAIVisibility } from '@/hooks/useAIVisibility'
 
 const TABS = ['OpenAI Results', 'Claude Results', 'Keywords', 'Competitors'] as const
@@ -25,10 +26,10 @@ export default function AIVisibilityPage() {
   const {
     runs, latestRun, keywords, competitors,
     synupSummaries, competitorSummaries,
-    loading, error,
+    loading, error, frequency,
     addKeyword, updateKeyword, deactivateKeyword,
     addCompetitor, updateCompetitor, deactivateCompetitor,
-    triggerRun,
+    triggerRun, updateFrequency, fetchPositionHistory, refetch,
   } = useAIVisibility(selectedRunId)
 
   const handleTrigger = async () => {
@@ -38,6 +39,8 @@ export default function AIVisibilityPage() {
   }
 
   const model = MODEL_MAP[activeTab]
+  const hasResults = model && (synupSummaries[model]?.length ?? 0) > 0
+  const hasNoRuns = !loading && runs.filter(r => r.status === 'completed').length === 0
 
   return (
     <>
@@ -52,6 +55,8 @@ export default function AIVisibilityPage() {
             onSelectRun={setSelectedRunId}
             onTriggerRun={handleTrigger}
             triggering={triggering}
+            frequency={frequency}
+            onFrequencyChange={updateFrequency}
           />
         }
       />
@@ -78,22 +83,31 @@ export default function AIVisibilityPage() {
           ))}
         </div>
 
-        {error && (
-          <div className="mb-4 rounded-lg p-3 text-sm" style={{ background: 'var(--red-bg)', color: 'var(--red)' }}>
-            {error}
-          </div>
-        )}
+        {error && <ErrorBanner message={error} onRetry={refetch} />}
 
         {loading ? (
-          <div className="py-12 text-center text-sm" style={{ color: 'var(--text-dim)' }}>
-            Loading AI visibility data...
+          <div className="space-y-4">
+            <TableSkeleton rows={6} />
+            <TableSkeleton rows={4} />
           </div>
         ) : (
           <>
             {(activeTab === 'OpenAI Results' || activeTab === 'Claude Results') && (
               <div className="space-y-4">
-                <SynupResultsTable model={model} summaries={synupSummaries[model] ?? []} />
-                <CompetitorResultsTable model={model} summaries={competitorSummaries[model] ?? []} />
+                {hasNoRuns ? (
+                  <EmptyState message="No data yet — trigger your first run to see AI visibility results." />
+                ) : !hasResults ? (
+                  <EmptyState message={`No results for ${activeTab.replace(' Results', '')} yet. Run a check to populate data.`} />
+                ) : (
+                  <>
+                    <SynupResultsTable
+                      model={model}
+                      summaries={synupSummaries[model] ?? []}
+                      onFetchHistory={fetchPositionHistory}
+                    />
+                    <CompetitorResultsTable model={model} summaries={competitorSummaries[model] ?? []} />
+                  </>
+                )}
               </div>
             )}
 

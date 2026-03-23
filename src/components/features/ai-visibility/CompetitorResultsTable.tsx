@@ -1,6 +1,7 @@
 'use client'
 
 import type { CompetitorSummary } from '@/types'
+import { ExportCSVButton } from './ExportCSVButton'
 
 interface CompetitorResultsTableProps {
   model: string
@@ -10,15 +11,27 @@ interface CompetitorResultsTableProps {
 export function CompetitorResultsTable({ model, summaries }: CompetitorResultsTableProps) {
   const sorted = [...summaries].sort((a, b) => b.mention_rate - a.mention_rate)
 
+  const csvHeaders = ['Competitor', 'Mention Rate', 'Avg Position', 'Change', 'Top URLs']
+  const csvRows = sorted.map(c => [
+    c.name,
+    `${c.mention_rate}%`,
+    c.avg_position != null ? String(c.avg_position) : '',
+    c.position_change != null ? String(c.position_change) : '',
+    c.top_urls.join(' | '),
+  ])
+
   return (
     <div
       className="rounded-lg"
       style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
     >
-      <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
         <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>
           Competitor Mentions — {model}
         </span>
+        {summaries.length > 0 && (
+          <ExportCSVButton headers={csvHeaders} rows={csvRows} filename={`competitors-${model}`} />
+        )}
       </div>
 
       {summaries.length === 0 ? (

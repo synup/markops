@@ -2,16 +2,19 @@
 
 import { useState } from 'react'
 import type { SynupKeywordSummary } from '@/types'
+import type { PositionHistoryRow } from '@/hooks/useAIVisibility'
 import { SynupRow } from './SynupRow'
+import { ExportCSVButton } from './ExportCSVButton'
 
 interface SynupResultsTableProps {
   model: string
   summaries: SynupKeywordSummary[]
+  onFetchHistory: (keywordId: string, model: string) => Promise<PositionHistoryRow[]>
 }
 
 type SortKey = 'keyword_text' | 'avg_position' | 'mentioned'
 
-export function SynupResultsTable({ model, summaries }: SynupResultsTableProps) {
+export function SynupResultsTable({ model, summaries, onFetchHistory }: SynupResultsTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('avg_position')
   const [sortAsc, setSortAsc] = useState(true)
 
@@ -33,15 +36,28 @@ export function SynupResultsTable({ model, summaries }: SynupResultsTableProps) 
 
   const arrow = (key: SortKey) => sortKey === key ? (sortAsc ? ' ▴' : ' ▾') : ''
 
+  const csvHeaders = ['Keyword', 'Category', 'Mentioned', 'Avg Position', 'Change', 'Cited URLs']
+  const csvRows = sorted.map(r => [
+    r.keyword_text,
+    r.category,
+    r.mentioned ? 'YES' : 'NO',
+    r.avg_position != null ? String(r.avg_position) : '',
+    r.position_change != null ? String(r.position_change) : '',
+    r.cited_urls.join(' | '),
+  ])
+
   return (
     <div
       className="rounded-lg"
       style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
     >
-      <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
         <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>
           Synup Mentions — {model}
         </span>
+        {summaries.length > 0 && (
+          <ExportCSVButton headers={csvHeaders} rows={csvRows} filename={`synup-${model}`} />
+        )}
       </div>
 
       {summaries.length === 0 ? (
@@ -63,7 +79,12 @@ export function SynupResultsTable({ model, summaries }: SynupResultsTableProps) 
             </thead>
             <tbody>
               {sorted.map(row => (
-                <SynupRow key={row.keyword_id} row={row} />
+                <SynupRow
+                  key={row.keyword_id}
+                  row={row}
+                  model={model}
+                  onFetchHistory={onFetchHistory}
+                />
               ))}
             </tbody>
           </table>

@@ -32,7 +32,7 @@ function computeSynupSummaries(
     summaries[model] = keywords.map(kw => {
       const kwResults = modelResults.filter(r => r.keyword_id === kw.id)
       const mentionedCount = kwResults.filter(r => r.synup_mentioned).length
-      const mentioned = mentionedCount > kwResults.length / 2
+      const mentioned = mentionedCount > 0
       const positions = kwResults
         .filter(r => r.synup_position != null)
         .map(r => r.synup_position!)

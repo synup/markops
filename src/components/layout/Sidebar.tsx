@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { label: 'Reddit', href: '/research', icon: '◈' },
   { label: 'AI Visibility', href: '/ai-visibility', icon: '◉' },
   { label: 'pSEO Content', href: '/pseo-content', icon: '◎' },
+  { label: 'Email Sigs', href: '/email-signatures', icon: '✉' },
   { label: 'Error Logs', href: '/errors', icon: '⚠' },
   { label: 'Settings', href: '/settings', icon: '⚙' },
 ]

@@ -55,7 +55,7 @@ function computeAnalytics(articles: PseoArticle[]): PseoAnalytics {
   const last7 = articles.filter(a => isWithinDays(a.publishedDate, 7)).length
 
   const indexed = articles.filter(a =>
-    a.indexerResponseCode === 200 || a.indexerStatus?.toLowerCase() === 'success'
+    a.indexerStatus?.toLowerCase() === 'indexed'
   ).length
   const rate = (indexed / total) * 100
 

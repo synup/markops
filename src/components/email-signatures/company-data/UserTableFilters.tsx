@@ -1,21 +1,26 @@
 import { Search } from 'lucide-react'
-import type { WorkspaceUser } from '@/types/email-signatures'
+import type { WorkspaceUser, Signature } from '@/types/email-signatures'
 
 interface UserTableFiltersProps {
   search: string
   onSearchChange: (v: string) => void
-  department: string
-  onDepartmentChange: (v: string) => void
+  signatureId: string
+  onSignatureIdChange: (v: string) => void
+  orgUnit: string
+  onOrgUnitChange: (v: string) => void
   users: WorkspaceUser[]
+  signatures: Signature[]
 }
 
-const inputStyle: React.CSSProperties = {
-  background: 'var(--surface-2)', color: 'var(--text)',
-  border: '1px solid var(--border)',
+const selectStyle: React.CSSProperties = {
+  background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)',
 }
 
-export function UserTableFilters({ search, onSearchChange, department, onDepartmentChange, users }: UserTableFiltersProps) {
-  const departments = [...new Set(users.map(u => u.department).filter(Boolean))] as string[]
+export function UserTableFilters({
+  search, onSearchChange, signatureId, onSignatureIdChange,
+  orgUnit, onOrgUnitChange, users, signatures,
+}: UserTableFiltersProps) {
+  const orgUnits = [...new Set(users.map(u => u.org_unit).filter(Boolean))] as string[]
 
   return (
     <div className="flex items-center gap-3">
@@ -26,17 +31,18 @@ export function UserTableFilters({ search, onSearchChange, department, onDepartm
           onChange={e => onSearchChange(e.target.value)}
           placeholder="Search users..."
           className="w-full pl-9 pr-3 py-2 rounded-lg text-sm outline-none"
-          style={inputStyle}
+          style={selectStyle}
         />
       </div>
-      <select
-        value={department}
-        onChange={e => onDepartmentChange(e.target.value)}
-        className="rounded-lg px-3 py-2 text-sm outline-none"
-        style={inputStyle}
-      >
-        <option value="">All departments</option>
-        {departments.map(d => <option key={d} value={d}>{d}</option>)}
+      <select value={signatureId} onChange={e => onSignatureIdChange(e.target.value)}
+        className="rounded-lg px-3 py-2 text-sm outline-none" style={selectStyle}>
+        <option value="">All Signatures</option>
+        {signatures.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+      </select>
+      <select value={orgUnit} onChange={e => onOrgUnitChange(e.target.value)}
+        className="rounded-lg px-3 py-2 text-sm outline-none" style={selectStyle}>
+        <option value="">All Org Units</option>
+        {orgUnits.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
     </div>
   )

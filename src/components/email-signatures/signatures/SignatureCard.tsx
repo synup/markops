@@ -26,12 +26,20 @@ export function SignatureCard({ signature, onEdit, onDelete, onDuplicate, onDepl
         </Badge>
       </div>
 
-      <div className="flex-1 p-4 min-h-[140px] overflow-hidden relative" style={{ background: 'var(--surface-2)' }}>
+      {/* HTML preview in white container for email rendering */}
+      <div className="flex-1 p-3 min-h-[140px] overflow-hidden relative" style={{ background: 'var(--surface-2)' }}>
         <div
-          className="text-xs transform origin-top-left scale-75 pointer-events-none overflow-hidden max-h-48"
-          dangerouslySetInnerHTML={{ __html: signature.html_template }}
-        />
-        <div className="absolute inset-x-0 bottom-0 h-8" style={{ background: 'linear-gradient(transparent, var(--surface-2))' }} />
+          className="rounded-lg p-3 min-h-[120px] overflow-hidden relative"
+          style={{ background: '#ffffff' }}
+        >
+          <div
+            className="text-xs transform origin-top-left scale-[0.8] pointer-events-none overflow-hidden max-h-48"
+            style={{ color: '#000' }}
+            dangerouslySetInnerHTML={{ __html: signature.html_template }}
+          />
+          <div className="absolute inset-x-0 bottom-0 h-8 rounded-b-lg"
+            style={{ background: 'linear-gradient(transparent, #ffffff)' }} />
+        </div>
       </div>
 
       <div className="p-4 flex items-center justify-between" style={{ borderTop: '1px solid var(--border)' }}>

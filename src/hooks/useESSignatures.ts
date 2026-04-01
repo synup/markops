@@ -30,7 +30,7 @@ export function useESSignature(id: string) {
   const [signature, setSignature] = useState<Signature | null>(null)
   const [loading, setLoading] = useState(true)
   useEffect(() => {
-    if (!id) return
+    if (!id) { setLoading(false); return }
     const supabase = createClient()
     supabase.from('es_signatures').select('*').eq('id', id).single()
       .then(({ data }) => { setSignature(data); setLoading(false) })

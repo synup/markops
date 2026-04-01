@@ -4,7 +4,12 @@ function getServiceAccount() {
   const raw = process.env.GOOGLE_ES_SERVICE_ACCOUNT_JSON
   if (!raw) throw new Error('GOOGLE_ES_SERVICE_ACCOUNT_JSON is not set')
   try {
-    return JSON.parse(raw)
+    const sa = JSON.parse(raw)
+    // Fix private key newlines — Vercel may store \n as literal \\n
+    if (sa.private_key) {
+      sa.private_key = sa.private_key.replace(/\\n/g, '\n')
+    }
+    return sa
   } catch {
     throw new Error('GOOGLE_ES_SERVICE_ACCOUNT_JSON is not valid JSON')
   }

@@ -145,7 +145,7 @@ def main() -> None:
     log("=== Workspace User Sync started ===")
 
     # Load env
-    sa_raw = get_env("GOOGLE_SERVICE_ACCOUNT_JSON")
+    sa_raw = get_env("GOOGLE_ES_SERVICE_ACCOUNT_JSON")
     admin_email = get_env("GOOGLE_ADMIN_EMAIL")
     supabase_url = get_env("SUPABASE_URL")
     supabase_key = get_env("SUPABASE_SERVICE_ROLE_KEY")

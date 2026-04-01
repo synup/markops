@@ -1,12 +1,12 @@
 import { google } from 'googleapis'
 
 function getServiceAccount() {
-  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON
-  if (!raw) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is not set')
+  const raw = process.env.GOOGLE_ES_SERVICE_ACCOUNT_JSON
+  if (!raw) throw new Error('GOOGLE_ES_SERVICE_ACCOUNT_JSON is not set')
   try {
     return JSON.parse(raw)
   } catch {
-    throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON')
+    throw new Error('GOOGLE_ES_SERVICE_ACCOUNT_JSON is not valid JSON')
   }
 }
 
@@ -31,5 +31,5 @@ export function getUserAuth(userEmail: string) {
 }
 
 export function isServiceAccountConfigured(): boolean {
-  return !!process.env.GOOGLE_SERVICE_ACCOUNT_JSON && !!process.env.GOOGLE_ADMIN_EMAIL
+  return !!process.env.GOOGLE_ES_SERVICE_ACCOUNT_JSON && !!process.env.GOOGLE_ADMIN_EMAIL
 }

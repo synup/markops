@@ -48,7 +48,7 @@ export function SignatureCard({ signature, onEdit, onDelete, onDuplicate, onDepl
           {signature.user_count ?? 0} users
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => onDeploy(signature)}><RefreshCw className="w-3.5 h-3.5" /></Button>
+          <Button variant="ghost" size="sm" onClick={() => onDeploy(signature)} title="Deploy all signatures"><RefreshCw className="w-3.5 h-3.5" /></Button>
           <Button variant="ghost" size="sm" onClick={() => onEdit(signature)}><Pencil className="w-3.5 h-3.5" /></Button>
           <Button variant="ghost" size="sm" onClick={() => onDuplicate(signature)}><Copy className="w-3.5 h-3.5" /></Button>
           <Button variant="ghost" size="sm" onClick={() => onDelete(signature)}><Trash2 className="w-3.5 h-3.5" /></Button>

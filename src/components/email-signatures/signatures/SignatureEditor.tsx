@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { TokenSidebar } from './TokenSidebar'
+import { SignatureBuilder } from './SignatureBuilder'
 import { Button } from '@/components/email-signatures/ui/Button'
 import { Save } from 'lucide-react'
 import type { Signature } from '@/types/email-signatures'
@@ -12,13 +13,15 @@ interface SignatureEditorProps {
   isNew?: boolean
 }
 
+type Tab = 'builder' | 'source' | 'preview'
+
 export function SignatureEditor({ signature, onSave, isNew }: SignatureEditorProps) {
   const [name, setName] = useState(signature.name ?? '')
   const [status, setStatus] = useState<'draft' | 'active'>(signature.status ?? 'draft')
   const [isDefault, setIsDefault] = useState(signature.is_org_default ?? false)
   const [saving, setSaving] = useState(false)
   const [nameError, setNameError] = useState(false)
-  const [tab, setTab] = useState<'source' | 'preview'>('source')
+  const [tab, setTab] = useState<Tab>('source')
   const [sourceHtml, setSourceHtml] = useState(signature.html_template ?? '')
 
   const handleSave = useCallback(async () => {
@@ -44,6 +47,8 @@ export function SignatureEditor({ signature, onSave, isNew }: SignatureEditorPro
   const selectStyle: React.CSSProperties = {
     background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)',
   }
+
+  const showSidebar = tab === 'source'
 
   return (
     <div className="flex flex-col h-full">
@@ -76,23 +81,34 @@ export function SignatureEditor({ signature, onSave, isNew }: SignatureEditorPro
       {/* Editor body */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Source / Preview tabs */}
+          {/* Tabs */}
           <div className="flex items-center gap-0.5 px-3 py-1.5 shrink-0" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
-            {(['source', 'preview'] as const).map(t => (
+            {(['builder', 'source', 'preview'] as const).map(t => (
               <button key={t} onClick={() => setTab(t)}
                 className="px-3 py-1 rounded-md text-xs font-medium capitalize transition-colors"
                 style={{ background: tab === t ? 'var(--surface-3)' : 'transparent', color: tab === t ? 'var(--text)' : 'var(--text-muted)' }}>
                 {t}
               </button>
             ))}
-            {isNew && (
-              <span className="ml-3 text-[11px]" style={{ color: 'var(--text-dim)' }}>
+            {tab === 'builder' && (
+              <span className="ml-3" style={{ color: 'var(--text-dim)', fontSize: 11 }}>
+                Generates HTML automatically
+              </span>
+            )}
+            {isNew && tab === 'source' && (
+              <span className="ml-3" style={{ color: 'var(--text-dim)', fontSize: 11 }}>
                 Tip: Paste your existing HTML signature below, or type from scratch
               </span>
             )}
           </div>
 
-          {tab === 'source' ? (
+          {tab === 'builder' && (
+            <div className="flex-1 overflow-auto">
+              <SignatureBuilder onChange={html => setSourceHtml(html)} />
+            </div>
+          )}
+
+          {tab === 'source' && (
             <div className="flex-1 overflow-auto p-0">
               <textarea value={sourceHtml} onChange={e => setSourceHtml(e.target.value)}
                 placeholder="Paste your HTML signature here, or type from scratch"
@@ -100,7 +116,9 @@ export function SignatureEditor({ signature, onSave, isNew }: SignatureEditorPro
                 style={{ background: 'var(--surface-2)', color: 'var(--text)', border: 'none' }}
                 spellCheck={false} />
             </div>
-          ) : (
+          )}
+
+          {tab === 'preview' && (
             <div className="flex-1 overflow-auto" style={{ background: 'var(--surface-2)' }}>
               <div className="p-4 flex justify-center">
                 <iframe
@@ -113,7 +131,7 @@ export function SignatureEditor({ signature, onSave, isNew }: SignatureEditorPro
             </div>
           )}
         </div>
-        <TokenSidebar onInsert={handleInsertToken} />
+        {showSidebar && <TokenSidebar onInsert={handleInsertToken} />}
       </div>
     </div>
   )

@@ -40,6 +40,7 @@ SAFETY_LOOKBACK  = timedelta(minutes=1)
 
 SALES_PIPELINES  = {'Sales Pipeline', 'Exec Pipeline'}
 CS_PIPELINES     = {'Customer Onboarding', 'Customer Success'}
+INTERNAL_DOMAIN  = '@synup.com'
 
 SUPABASE_URL              = os.environ.get('SUPABASE_URL', '')
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
@@ -95,12 +96,16 @@ def parse_args() -> argparse.Namespace:
 
 
 def derive_conversation_type(pipeline):
-    """Sales HQ pipeline -> 'sales' | 'cs' | None (None = skip)."""
+    """Sales HQ pipeline -> 'sales' | 'cs' | 'unknown'.
+
+    Returns 'unknown' for null/unrecognized pipelines so they're ingested
+    rather than dropped; Phase 2 extraction can classify or surface them.
+    """
     if pipeline in SALES_PIPELINES:
         return 'sales'
     if pipeline in CS_PIPELINES:
         return 'cs'
-    return None
+    return 'unknown'
 
 
 def _titlecase_local_part(local: str) -> str:
@@ -222,16 +227,30 @@ def upsert_sales_call(meeting: dict, dry_run: bool) -> str:
         log('error', 'missing_meeting_id', meeting_keys=str(list(meeting.keys()))[:200])
         return 'errored'
 
+    # Skip cancelled meetings (Google Calendar prefix convention)
+    title = meeting.get('title') or ''
+    if title.startswith('Cancelled:'):
+        log('warning', 'skip_cancelled_meeting',
+            meeting_id=str(meeting_id), title=title[:80])
+        return 'skipped'
+
+    # Skip internal-only meetings (no external attendees)
+    external_attendees = meeting.get('external_attendees') or []
+    # Defensive: filter out Synup-internal accidents (Sales HQ classifier isn't perfect)
+    external_attendees = [
+        a for a in external_attendees
+        if not (a.get('email') or '').lower().endswith(INTERNAL_DOMAIN)
+    ]
+    if not external_attendees:
+        log('warning', 'skip_internal_only_meeting',
+            meeting_id=str(meeting_id), title=title[:80])
+        return 'skipped'
+
     structured       = (meeting.get('summary') or {}).get('structured_data') or {}
     pipeline         = structured.get('pipeline')
     conversation_type = derive_conversation_type(pipeline)
 
-    if conversation_type is None:
-        log('warning', 'skip_unmapped_pipeline',
-            meeting_id=str(meeting_id), pipeline=pipeline)
-        return 'skipped'
-
-    customer = derive_customer_fields(meeting.get('external_attendees') or [])
+    customer = derive_customer_fields(external_attendees)
 
     payload = {
         'external_meeting_id':   str(meeting_id),

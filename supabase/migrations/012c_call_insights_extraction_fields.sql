@@ -22,6 +22,7 @@ alter table call_insights add column if not exists approved_asset_type text;
 alter table call_insights add column if not exists rejection_reason text;
 
 -- Constraints (drop-if-exists + add = idempotent)
+alter table call_insights drop constraint if exists call_insights_asset_type_check;
 alter table call_insights drop constraint if exists call_insights_suggested_asset_type_check;
 alter table call_insights add constraint call_insights_suggested_asset_type_check
   check (suggested_asset_type in ('blog_post','deep_article','use_case','collateral','tool','thought_leadership')

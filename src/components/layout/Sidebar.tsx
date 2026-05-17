@@ -3,14 +3,32 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useBrandAlerts } from '@/hooks/useRedditResearch'
+import type { ReactNode } from 'react'
 
-const NAV_ITEMS = [
+const MessageSquareIcon = (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </svg>
+)
+
+const NAV_ITEMS: Array<{ label: string; href: string; icon: ReactNode }> = [
   { label: 'Dashboard', href: '/', icon: '◉' },
   { label: 'Adwords Audit', href: '/audit', icon: '✓' },
   { label: 'Campaigns', href: '/campaigns', icon: '▶' },
   { label: 'Keywords', href: '/keywords', icon: '⌕' },
   { label: 'Leads', href: '/leads', icon: '◆' },
   { label: 'Reddit', href: '/research', icon: '◈' },
+  { label: 'Conversations', href: '/conversations', icon: MessageSquareIcon },
   { label: 'AI Visibility', href: '/ai-visibility', icon: '◉' },
   { label: 'pSEO Content', href: '/pseo-content', icon: '◎' },
   { label: 'Email Sigs', href: '/email-signatures', icon: '✉' },

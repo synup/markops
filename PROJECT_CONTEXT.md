@@ -1,6 +1,6 @@
 # Marketing HQ — Project Context
 
-> Updated end of session 2026-03-23. This file is the single source of truth for continuing work on this project.
+> Updated end of session 2026-05-17. This file is the single source of truth for continuing work on this project.
 
 ## What This Is
 
@@ -162,6 +162,20 @@ markops/
 - **Environment variables set**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (all environments)
 - **Note**: `SUPABASE_SERVICE_ROLE_KEY` is NOT on Vercel (not needed — only used on droplet)
 
+## Branch State
+
+Canonical branch: main. main and master were diverged from late March through 2026-05-17 (main had signature manager work, master had content-intelligence work — 57 unique main commits, 28 unique master commits). Consolidated into main on 2026-05-17 via direct merge of master into main. 7 conflicts resolved: .env.example, package.json/lock, globals.css, Sidebar.tsx, usePseoContent.ts add/add, types/index.ts. The dual-write convention (writing to both repo-root src/ AND Downloads/Adwords auditor/marketing-hq/src/) is DROPPED — /Users/niladri/src/ was a stale 24 Mar mirror tree that hadn't reflected any work since Phase 1. Main is now the single source of truth on disk and on GitHub.
+
+## Phase 3 Status
+
+### Phase 3a — SHIPPED (2026-05-17)
+
+Phase 3a (Conversations review queue) SHIPPED 2026-05-17. Live at marketing-hq-nine.vercel.app/conversations. Light-theme review surface for call_insights from Phase 2 extraction. Approve/reject/revoke flow with optimistic UI, detail drawer, keyboard navigation, JustApprovedBanner with Undo. Architecture: 5 API routes under /api/conversations/ (GET list, PATCH approve/reject/revoke + requireAdmin helper at src/lib/auth/), 9 hooks (useUrlState, useConversations, useApprove, useReject, useRevoke, useDetailDrawer, useKeyboardNav, useConversationActions, useToast), 17 components under src/components/features/conversations/, 4 UI primitives (Button, Chip, ScoreBadge, Toast). Brief/draft generation deferred to Phase 3b/3c — Download brief and View draft buttons render disabled with placeholder tooltip.
+
+### Phase 3b — NOT STARTED
+
+Phase 3b: brief generator for 5 long-form asset types (blog_post, deep_article, use_case, collateral, tool). Triggers when approve action sets approved_asset_type to one of these brackets. Output format TBD (markdown vs docx vs pdf). Storage TBD (new Supabase table vs file storage on droplet). Generation pipeline TBD (sync on approve vs queued worker). Per-asset-type prompt templates needed. UI: wire up existing Download brief placeholder button. Not started.
+
 ## Droplet Setup
 
 - **IP**: `167.71.229.75` (Ubuntu 22.04, Bangalore)
@@ -265,6 +279,12 @@ markops/
 - Gmail App Password on droplet is only 10 chars (needs 16) — but email is no longer needed
 - Legacy `Downloads/Adwords auditor/` path in repo should be restructured
 - Negative keywords are **campaign-level only** (no account-level shared lists in the current schema)
+- **Housekeeping pending (deferred from 2026-05-17)**:
+  - Delete `master` branch local + remote (post-merge, master is no longer canonical)
+  - Remove stray nested file `marketing-hq/Downloads/Adwords auditor/error_logger.py` (accidental commit from master's history)
+  - Delete `/Users/niladri/package-lock.json` and `/Users/niladri/src/` mirror tree (stale dual-write artifacts)
+  - Investigate 2 npm audit vulns (1 moderate, 1 high) surfaced by the post-merge `npm install`
+  - Review `lucide-react@^1.7.0` pin — unusually old version, sanity check on a fresh checkout
 
 ## Key Credentials & Infra
 
@@ -428,6 +448,35 @@ markops/
 **Security audit:**
 15. Confirmed no hardcoded secrets in any tracked files — all credentials via env vars
 16. `.gitignore` properly excludes `.env`, `.env.local`, `.env.*.local`
+
+### 2026-05-17 — Phase 3a Ship + Branch Consolidation
+
+**Phase 3a — Conversations review queue shipped:**
+1. Built `/conversations` page with light-theme review surface (sidebar stays dark navy)
+2. 5 API routes (GET list + counts, PATCH approve/reject/revoke) gated by new `requireAdmin` helper at `src/lib/auth/`
+3. 9 hooks: `useUrlState`, `useConversations`, `useApprove`, `useReject`, `useRevoke`, `useDetailDrawer`, `useKeyboardNav`, `useConversationActions`, `useToast`
+4. 17 components under `src/components/features/conversations/`: `InsightCard`, `DetailDrawer` (split into `DrawerHeader` + `DrawerVerbatim` + `DrawerScores` + `DrawerMetadata` + `DrawerActions`), `ConversationsTabBar`, `ConversationsFilters`, `ConversationsView`, `ConversationsContainer`, `ApprovalPicker`, `RejectInput`, `JustApprovedBanner`, `KeyboardFooter`, `ShortcutHelpModal`
+5. 4 UI primitives added: `Button`, `Chip`, `ScoreBadge`, `Toast` (with `ToastProvider` mounted in dashboard layout)
+6. Optimistic approve/reject/revoke flow with animated card exit (250ms slide + fade), source/dest count bumps, error toast on mutation failure (mutation hooks own the error toast — page handlers only revert state)
+7. Detail drawer slides from right (480px, 300ms transform), 300ms render-row lag keeps content alive during exit animation so panel doesn't blank out mid-slide
+8. Keyboard nav: j/k navigate, Enter open drawer, A/R open approve/reject inline pickers on focused card, Esc close/cancel, ? help modal. Bails on `input`, `textarea`, `select`, `[contentEditable]`, `[role=textbox]`
+9. URL state for tab + filters (`?tab=pending&conversation_type=sales&bracket=high`); ConversationsPage wrapped in Suspense for Next 15 useSearchParams requirement
+10. JustApprovedBanner shows in Approved tab for 30s after approval with Undo button (revokes); auto-clears on tab switch
+11. Sidebar `NAV_ITEMS` widened from `string` to `ReactNode` for icons; `Conversations` entry uses inline MessageSquare SVG (lucide path data, no icon library installed)
+12. Disabled placeholder buttons in Approved tab (`View brief` / `Download brief`) with "Coming in Phase 3b" tooltip
+13. Built into production cleanly: /conversations route at 8.36 kB / 111 kB First Load JS
+
+**Branch consolidation:**
+14. main and master had diverged since late March (main = signature manager + leads + ai-visibility + email-signatures + error-logs, master = Phase 1/2/3a content intelligence). Merged master into main on 2026-05-17 via direct merge
+15. 7 conflicts resolved: `.env.example` (union env vars — kept Email Signatures DWD creds), `package.json` (union deps — added TipTap suite, clsx, date-fns, lucide-react), `package-lock.json` (deleted + `npm install` regenerated), `src/app/globals.css` (kept main's `.btn-research` hover rules), `src/components/layout/Sidebar.tsx` (kept both imports, unioned NAV_ITEMS with Conversations inserted between Reddit and AI Visibility, kept main's "Reddit" label rename at `/research`), `src/hooks/usePseoContent.ts` (add/add — see note below), `src/types/index.ts` (kept main's RedditScoreRequest + Error Logs + JobHeartbeat + TallyLead + LeadsFilters + AI Visibility type additions)
+16. Dual-write convention dropped — `/Users/niladri/src/` was a stale 24 Mar mirror that hadn't been updated since Phase 1. Single source of truth now: `Downloads/Adwords auditor/marketing-hq/src/`
+17. Merge committed (a263dd6), pushed to origin/main, Vercel auto-deployed
+
+**usePseoContent.ts merge decision (watch for regression):**
+18. The hook's `computeAnalytics` had an add/add conflict on a single line — the indexed-status check. Kept master's `a.indexerResponseCode === 200 || a.indexerStatus?.toLowerCase() === 'success'` over main's `a.indexerStatus?.toLowerCase() === 'indexed'`. `indexerResponseCode` is from the indexer service, not the page itself. If the pSEO indexed-count metric shifts unexpectedly post-merge, union both checks (add `|| indexerStatus === 'indexed'`).
+
+**Verification:**
+19. `npx tsc --noEmit` clean. `npm run build` clean — 32 pages generated, /conversations at 8.36 kB, all conversations API routes present alongside existing main routes (`/leads`, `/ai-visibility`, `/email-signatures/*`, `/errors`, `/research`). 1 build warning about `@next/swc` lockfile patch — non-fatal.
 
 ## Rules for Future Sessions
 1. **Components < 150 lines** — split if exceeding

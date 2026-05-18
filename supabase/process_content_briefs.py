@@ -3,25 +3,27 @@
 Generate content briefs for approved call_insights.
 Phase 3b of the Content Intelligence Workflow.
 
-For each content_briefs row with status='pending' (oldest first), respecting
-exponential backoff on retry_count:
+For each content_briefs row with status='pending' (oldest first):
   1. Claim the row by PATCHing status='generating' (conditional on status=pending
      so concurrent workers cannot double-pick).
   2. Fetch the linked call_insight + sales_call (customer name/company, problem
      statement, marketing summary, verbatim quotes, asset rationale, author).
   3. Compose system prompt = base.md + brief_prompts/<asset_type>.md.
-  4. Call Claude Sonnet 4.6 with the call context as user message.
+  4. Call Claude Sonnet 4.6 with the call context as user message, with up to
+     MAX_ATTEMPTS inline retries on transient generation failures.
   5. PATCH brief_content, prompt_used, model_version, generation_metadata,
-     ready_at, status='ready' on success. On failure, increment retry_count,
-     set error_message, and either drop back to 'pending' (retryable, subject
-     to the backoff window before next pickup) or 'failed' (terminal).
+     ready_at, status='ready' on success. After MAX_ATTEMPTS failures, set
+     status='failed' with error_message and move on to the next candidate.
 
-Retry policy:
-  retry_count=0  first attempt, eligible immediately
-  retry_count=1  retry 1, eligible 1 minute after prior failure
-  retry_count=2  retry 2, eligible 5 minutes after prior failure
-  retry_count=3  retry 3, eligible 15 minutes after prior failure
-  retry_count=4  no further retries — status flips to 'failed' (terminal)
+Retry policy (inline within a single invocation — no cross-run backoff):
+  Attempt 1: immediate
+  Attempt 2: after 30s wait
+  Attempt 3: after 60s wait
+  After attempt 3 fails: status='failed' (terminal), move to next brief.
+
+Worst case ~90s of inline wait + 3x Claude call latency per failing brief.
+That cost is bounded per brief so a bad row cannot freeze the queue or cause
+overlapping cron runs.
 
 Per-run caps:
   - At most MAX_PER_RUN (=10) candidates fetched.
@@ -42,7 +44,7 @@ import os
 import re
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from urllib.parse import urlencode, quote
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -53,12 +55,12 @@ HTTP_TIMEOUT_S    = 60
 CLAUDE_TIMEOUT_S  = 300
 POLITE_DELAY_S    = 1.0
 MAX_PER_RUN       = 10
-MAX_RETRIES       = 3
+MAX_ATTEMPTS      = 3
 
-# Backoff (seconds) before a row with the given retry_count is eligible for
-# pickup. Tuple index = retry_count. After all retries are exhausted the row
-# transitions to 'failed' (terminal).
-RETRY_BACKOFF_S   = (0, 60, 300, 900)  # retry_count: 0=initial, 1=1m, 2=5m, 3=15m
+# Wait (seconds) BEFORE attempt N within a single invocation. Tuple index = N-1.
+# Attempt 1 is immediate; attempt 2 waits 30s; attempt 3 waits 60s.
+# Worst case ~90s of inline wait per failing brief.
+RETRY_BACKOFF_S   = (0, 30, 60)
 
 ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 ANTHROPIC_VERSION = '2023-06-01'
@@ -171,43 +173,19 @@ def load_asset_prompt(asset_type):
 
 
 # ─── Supabase reads ───────────────────────────────────────────────────
-def _backoff_filter():
-    """Return the PostgREST `or=(...)` clause that selects rows whose
-    retry_count is <= MAX_RETRIES AND whose updated_at is older than the
-    bucket's backoff window. Cutoff timestamps are computed client-side so
-    the filter is a plain comparison against literal ISO timestamps.
-    """
-    now = datetime.now(timezone.utc)
-    parts = []
-    for rc, secs in enumerate(RETRY_BACKOFF_S):
-        if rc > MAX_RETRIES:
-            break
-        if secs <= 0:
-            parts.append(f'retry_count.eq.{rc}')
-        else:
-            cutoff = (now - timedelta(seconds=secs)).isoformat()
-            parts.append(f'and(retry_count.eq.{rc},updated_at.lte.{cutoff})')
-    return f'or=({",".join(parts)})'
-
-
 def fetch_pending_briefs(limit, brief_id=None):
-    """GET content_briefs — pending rows eligible per backoff policy, oldest
-    first (or a specific id, bypassing the filter)."""
-    base = f'{SUPABASE_URL}/rest/v1/content_briefs'
+    """GET content_briefs — pending rows oldest first (or a specific id)."""
     params = [
-        ('select', 'id,call_insight_id,asset_type,status,retry_count,created_at,updated_at'),
+        ('select', 'id,call_insight_id,asset_type,status,retry_count,created_at'),
         ('limit',  str(limit)),
     ]
     if brief_id:
         params.append(('id', f'eq.{brief_id}'))
-        url = f'{base}?{urlencode(params)}'
     else:
         params.append(('status', 'eq.pending'))
         params.append(('order',  'created_at.asc'))
-        # urlencode the simple params, then append the or=(...) clause
-        # raw to avoid percent-encoding the parens/dots/commas PostgREST needs.
-        url = f'{base}?{urlencode(params)}&{_backoff_filter()}'
 
+    url = f'{SUPABASE_URL}/rest/v1/content_briefs?{urlencode(params)}'
     req = Request(url, headers=_supabase_headers())
     try:
         with urlopen(req, timeout=HTTP_TIMEOUT_S) as resp:
@@ -295,15 +273,34 @@ def write_success(brief_id, brief_content, prompt_used, metadata):
     _patch_brief(brief_id, payload, 'write_success_failed')
 
 
-def write_failure(brief_id, error_message, next_status, retry_count):
-    """PATCH brief row with failure metadata. next_status is 'pending' if
-    retryable (retry_count < MAX_RETRIES) else 'failed'."""
+def write_terminal_failure(brief_id, error_message):
+    """PATCH brief row with status='failed' after MAX_ATTEMPTS exhausted."""
     payload = {
-        'status':        next_status,
+        'status':        'failed',
         'error_message': error_message[:1000],
-        'retry_count':   retry_count,
+        'retry_count':   MAX_ATTEMPTS,
     }
     _patch_brief(brief_id, payload, 'write_failure_failed')
+
+
+def write_attempt_progress(brief_id, attempt, error_message):
+    """PATCH retry_count + error_message between inline retry attempts so
+    observers see progress while the worker is still trying."""
+    payload = {
+        'retry_count':   attempt,
+        'error_message': error_message[:1000],
+    }
+    _patch_brief(brief_id, payload, 'write_attempt_progress_failed')
+
+
+def release_brief(brief_id, error_message):
+    """Drop a claimed row back to 'pending' without consuming retry budget.
+    Used when an infra-level failure (Anthropic 401/429) aborts the run."""
+    payload = {
+        'status':        'pending',
+        'error_message': error_message[:1000],
+    }
+    _patch_brief(brief_id, payload, 'release_brief_failed')
 
 
 def _patch_brief(brief_id, payload, error_event):
@@ -483,94 +480,116 @@ def extract_metadata(api_response, system_prompt, user_message, latency_ms):
 
 # ─── orchestration ────────────────────────────────────────────────────
 def process_one_brief(brief, dry_run):
-    """Return 'processed' | 'skipped' | 'failed' | 'lost_claim'.
+    """Return 'processed' | 'failed' | 'lost_claim'.
 
-    AuthError / RateLimitError propagate to caller (abort run).
+    AuthError / RateLimitError propagate to caller (abort run); the claimed
+    row is released back to 'pending' first so it can be picked up later.
     """
-    brief_id      = brief['id']
-    asset_type    = brief['asset_type']
-    insight_id    = brief['call_insight_id']
-    retry_count   = brief.get('retry_count') or 0
+    brief_id   = brief['id']
+    asset_type = brief['asset_type']
+    insight_id = brief['call_insight_id']
 
-    # 1. Load joined context first (cheap read; if it fails, no point claiming).
-    try:
-        context = fetch_call_context(insight_id)
-    except FetchError as e:
-        log('error', 'context_fetch_failed',
-            brief_id=brief_id, call_insight_id=insight_id, detail=str(e)[:300])
-        new_retry = retry_count + 1
-        next_status = 'pending' if new_retry <= MAX_RETRIES else 'failed'
-        if not dry_run:
-            write_failure(brief_id, f'context_fetch: {e}', next_status, new_retry)
-        return 'failed'
-
-    # 2. Build prompts (also fails fast if asset_type or prompt file is bad).
+    # 1. Build system prompt (validates asset_type + loads files). Permanent
+    #    failure — don't claim a row we can't process.
     try:
         system_prompt = build_system_prompt(asset_type)
     except GenerationError as e:
         log('error', 'prompt_build_failed',
             brief_id=brief_id, asset_type=asset_type, detail=str(e)[:300])
-        new_retry = retry_count + 1
-        # Prompt build failures are not transient — go straight to 'failed'.
         if not dry_run:
-            write_failure(brief_id, f'prompt_build: {e}', 'failed', new_retry)
+            write_terminal_failure(brief_id, f'prompt_build: {e}')
         return 'failed'
 
-    user_message = build_user_message(context)
-
-    # 3. Claim the row (skip if dry-run; skip if another worker beat us).
+    # 2. Claim the row.
     if not dry_run:
         try:
             if not claim_brief(brief_id):
                 log('info', 'claim_lost', brief_id=brief_id)
                 return 'lost_claim'
         except GenerationError as e:
-            log('error', 'claim_error',
-                brief_id=brief_id, detail=str(e)[:300])
+            log('error', 'claim_error', brief_id=brief_id, detail=str(e)[:300])
             return 'failed'
 
-    # 4. Call Claude.
-    log('info', 'calling_claude',
-        brief_id=brief_id, asset_type=asset_type,
-        call_insight_id=insight_id,
-        system_prompt_chars=len(system_prompt),
-        user_message_chars=len(user_message))
+    # 3. Inline retry loop: context fetch + Claude call + parse.
+    last_error = None
+    for attempt_idx, wait_s in enumerate(RETRY_BACKOFF_S):
+        attempt = attempt_idx + 1
+        if wait_s > 0:
+            log('info', 'retry_wait',
+                brief_id=brief_id, attempt=attempt, wait_s=wait_s)
+            time.sleep(wait_s)
 
-    started = time.monotonic()
-    try:
-        api_response   = call_claude(system_prompt, user_message)
-        brief_content  = parse_brief(api_response)
-    except GenerationError as e:
-        log('error', 'generation_failed',
-            brief_id=brief_id, detail=str(e)[:300])
-        new_retry = retry_count + 1
-        next_status = 'pending' if new_retry <= MAX_RETRIES else 'failed'
-        if not dry_run:
-            write_failure(brief_id, f'generation: {e}', next_status, new_retry)
-        return 'failed'
+        try:
+            context = fetch_call_context(insight_id)
+        except FetchError as e:
+            last_error = f'context_fetch: {e}'
+            log('warning', 'attempt_failed',
+                brief_id=brief_id, attempt=attempt, stage='context',
+                detail=str(e)[:300])
+            if not dry_run:
+                write_attempt_progress(brief_id, attempt, last_error)
+            continue
 
-    latency_ms = int((time.monotonic() - started) * 1000)
-    metadata   = extract_metadata(api_response, system_prompt, user_message, latency_ms)
-    prompt_used = f'SYSTEM:\n{system_prompt}\n\n---\n\nUSER:\n{user_message}'
+        user_message = build_user_message(context)
+        log('info', 'calling_claude',
+            brief_id=brief_id, asset_type=asset_type, attempt=attempt,
+            call_insight_id=insight_id,
+            system_prompt_chars=len(system_prompt),
+            user_message_chars=len(user_message))
 
-    if dry_run:
-        print(json.dumps({
-            'brief_id':        brief_id,
-            'asset_type':      asset_type,
-            'call_insight_id': insight_id,
-            'metadata':        metadata,
-            'brief_preview':   brief_content[:1200],
-            'brief_length':    len(brief_content),
-        }, indent=2, ensure_ascii=False), flush=True)
+        started = time.monotonic()
+        try:
+            api_response  = call_claude(system_prompt, user_message)
+            brief_content = parse_brief(api_response)
+        except (AuthError, RateLimitError) as e:
+            # Operator-level failure — release the row to 'pending' so the
+            # next invocation can retry once creds / rate limits are sorted.
+            log('error', 'release_on_infra_failure',
+                brief_id=brief_id, attempt=attempt, detail=str(e)[:300])
+            if not dry_run:
+                release_brief(brief_id, str(e))
+            raise
+        except GenerationError as e:
+            last_error = f'generation: {e}'
+            log('warning', 'attempt_failed',
+                brief_id=brief_id, attempt=attempt, stage='generation',
+                detail=str(e)[:300])
+            if not dry_run:
+                write_attempt_progress(brief_id, attempt, last_error)
+            continue
+
+        # Success.
+        latency_ms = int((time.monotonic() - started) * 1000)
+        metadata   = extract_metadata(api_response, system_prompt, user_message, latency_ms)
+        prompt_used = f'SYSTEM:\n{system_prompt}\n\n---\n\nUSER:\n{user_message}'
+
+        if dry_run:
+            print(json.dumps({
+                'brief_id':        brief_id,
+                'asset_type':      asset_type,
+                'call_insight_id': insight_id,
+                'attempt':         attempt,
+                'metadata':        metadata,
+                'brief_preview':   brief_content[:1200],
+                'brief_length':    len(brief_content),
+            }, indent=2, ensure_ascii=False), flush=True)
+            return 'processed'
+
+        write_success(brief_id, brief_content, prompt_used, metadata)
+        log('info', 'brief_ready',
+            brief_id=brief_id, asset_type=asset_type, attempt=attempt,
+            brief_chars=len(brief_content),
+            latency_ms=latency_ms,
+            output_tokens=metadata.get('output_tokens'))
         return 'processed'
 
-    write_success(brief_id, brief_content, prompt_used, metadata)
-    log('info', 'brief_ready',
-        brief_id=brief_id, asset_type=asset_type,
-        brief_chars=len(brief_content),
-        latency_ms=latency_ms,
-        output_tokens=metadata.get('output_tokens'))
-    return 'processed'
+    # All MAX_ATTEMPTS exhausted.
+    log('error', 'all_attempts_failed',
+        brief_id=brief_id, attempts=MAX_ATTEMPTS,
+        detail=(last_error or 'unknown')[:300])
+    if not dry_run:
+        write_terminal_failure(brief_id, last_error or 'all_attempts_failed: unknown')
+    return 'failed'
 
 
 # ─── entry point ──────────────────────────────────────────────────────

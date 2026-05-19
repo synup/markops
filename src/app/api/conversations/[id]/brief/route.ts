@@ -1,0 +1,58 @@
+import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/auth/requireAdmin'
+import { createAdminClient } from '@/lib/supabase/admin'
+
+// Phase 3b: returns the most-recent content_briefs row for a call_insight,
+// used by the Approved tab to render "Generating brief…" pills and to enable
+// the Download brief button once status='ready'. brief_content is never
+// returned here — it ships via a separate /download endpoint.
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    await requireAdmin()
+
+    const { id } = await params
+    if (!id) {
+      return NextResponse.json({ error: 'missing id' }, { status: 400 })
+    }
+
+    const admin = createAdminClient()
+    const { data, error } = await admin
+      .from('content_briefs')
+      .select('id, asset_type, status, ready_at, error_message, brief_content, generation_metadata')
+      .eq('call_insight_id', id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (error) {
+      console.error('GET brief query failed:', error)
+      return NextResponse.json({ error: 'query failed', detail: error.message }, { status: 500 })
+    }
+    if (!data) {
+      return NextResponse.json({ brief: null })
+    }
+
+    const briefContent = data.brief_content as string | null
+    const metadata = data.generation_metadata as { output_tokens?: number | null } | null
+
+    return NextResponse.json({
+      brief: {
+        id: data.id,
+        asset_type: data.asset_type,
+        status: data.status,
+        chars: briefContent ? briefContent.length : null,
+        ready_at: data.ready_at,
+        output_tokens: metadata?.output_tokens ?? null,
+        has_content: !!briefContent && briefContent.length > 0,
+        error_message: data.error_message,
+      },
+    })
+  } catch (err) {
+    if (err instanceof Response) return err
+    console.error('GET brief error:', err)
+    return NextResponse.json({ error: 'internal error' }, { status: 500 })
+  }
+}

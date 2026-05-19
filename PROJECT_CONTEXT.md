@@ -98,7 +98,7 @@ markops/
 - **Font**: System fonts (-apple-system, Inter)
 - **Component rule**: No component > 150 lines. UI separated from logic via hooks.
 
-## Database Tables (29 total, 12 migrations)
+## Database Tables (latest migration: 018_content_briefs)
 
 | Table | Purpose | Written By |
 |-------|---------|-----------|
@@ -131,6 +131,7 @@ markops/
 | `ai_visibility_results` | Per keyword × model × repetition results (synup_mentioned, synup_position, competitors_data JSONB) | Droplet (fetch_ai_visibility.py) |
 | `ai_visibility_competitors` | Competitor names + variations text[] for case-insensitive matching (12 seeded) | Dashboard users |
 | `ai_visibility_config` | Key/value config (schedule_frequency) for persisting schedule settings | Dashboard + shell script |
+| `content_briefs` | Phase 3b: generated briefs for long-form asset types (blog_post / deep_article / use_case / collateral / tool). status pending → generating → ready/failed. NOT used for thought_leadership (Phase 3c content_drafts). | Approve API inserts pending row; Droplet (process_content_briefs.py) writes brief_content + flips to ready |
 
 ## Approval Workflow
 
@@ -172,9 +173,51 @@ Canonical branch: main. main and master were diverged from late March through 20
 
 Phase 3a (Conversations review queue) SHIPPED 2026-05-17. Live at marketing-hq-nine.vercel.app/conversations. Light-theme review surface for call_insights from Phase 2 extraction. Approve/reject/revoke flow with optimistic UI, detail drawer, keyboard navigation, JustApprovedBanner with Undo. Architecture: 5 API routes under /api/conversations/ (GET list, PATCH approve/reject/revoke + requireAdmin helper at src/lib/auth/), 9 hooks (useUrlState, useConversations, useApprove, useReject, useRevoke, useDetailDrawer, useKeyboardNav, useConversationActions, useToast), 17 components under src/components/features/conversations/, 4 UI primitives (Button, Chip, ScoreBadge, Toast). Brief/draft generation deferred to Phase 3b/3c — Download brief and View draft buttons render disabled with placeholder tooltip.
 
-### Phase 3b — NOT STARTED
+### Phase 3b — SHIPPED (2026-05-19)
 
-Phase 3b: brief generator for 5 long-form asset types (blog_post, deep_article, use_case, collateral, tool). Triggers when approve action sets approved_asset_type to one of these brackets. Output format TBD (markdown vs docx vs pdf). Storage TBD (new Supabase table vs file storage on droplet). Generation pipeline TBD (sync on approve vs queued worker). Per-asset-type prompt templates needed. UI: wire up existing Download brief placeholder button. Not started.
+Phase 3b (brief generator for the 5 long-form asset types) shipped end-to-end on 2026-05-19. Live at marketing-hq-nine.vercel.app/conversations.
+
+**Schema (migration 018):** `content_briefs` table — `id`, `call_insight_id` (FK to call_insights, ON DELETE CASCADE), `asset_type` CHECK in (`blog_post`, `deep_article`, `use_case`, `collateral`, `tool`) — explicitly NOT `thought_leadership` (that routes to Phase 3c `content_drafts` instead); `status` CHECK in (`pending`, `generating`, `ready`, `failed`); `brief_content` TEXT; `prompt_used` TEXT; `model_version` TEXT; `generation_metadata` JSONB (input_tokens/output_tokens/stop_reason/latency_ms); `error_message`; `retry_count` (informational); `ready_at`; plus `created_at`/`updated_at` with trigger. Indexes on `status` and `call_insight_id`.
+
+**Prompts (`supabase/brief_prompts/`):** 6 markdown files — `base.md` (Synup voice, ICP, competitive landscape, voice/style rules) + 5 asset-type specs (`blog_post.md`, `deep_article.md`, `use_case.md`, `collateral.md`, `tool.md`). The worker reads these from disk per brief. To edit prompts: SCP updated files to `/opt/google-ads-auditor/brief_prompts/` — no worker restart needed (load happens per-brief). Phase 3b.5 backlog will move these to a DB-backed editor in the Agents tab (modeled on `reddit_agent_configs`).
+
+**Worker (`supabase/process_content_briefs.py` on droplet):** stdlib-only Python (urllib, no anthropic SDK). Polls `content_briefs WHERE status='pending'` oldest first, `MAX_PER_RUN=10`. Claims rows via conditional PATCH (`id=eq.X&status=eq.pending` → `status='generating'`) so concurrent workers cannot double-pick. Joins `call_insights` + embedded `sales_calls!call_id(...)` for source context (customer, problem statement, marketing summary, verbatim quotes, asset rationale, suggested author, scores, attribution). System prompt = `base.md + <asset_type>.md`. Model `claude-sonnet-4-6`, `max_tokens=8192`, no extended thinking, no prompt caching. **Inline retry loop, 3 attempts** with backoffs `(0s, 30s, 60s)` — worst case ~90s of inline wait per failing brief; bounded so a bad row cannot freeze the queue or cause overlapping cron runs. `AuthError`/`RateLimitError` from Anthropic abort the run AND release the claimed row back to `'pending'` (operator-level failure, not the brief's fault — preserves retry budget). `FetchError`/`GenerationError` are inline-retried up to `MAX_ATTEMPTS`. After 3 failures: `status='failed'`, `error_message` populated, `retry_count=3` — terminal, admin reset required.
+
+**Wrapper (`supabase/run_content_briefs.sh`):** mirrors `run_call_insights.sh` — extracts env vars individually from `.env`, defaults `BRIEF_PROMPTS_DIR=/opt/google-ads-auditor/brief_prompts`, logs to `logs/process_content_briefs_<YYYYMMDD>.log`.
+
+**Cron:** `*/2 * * * * /opt/google-ads-auditor/run_content_briefs.sh` — every 2 minutes.
+
+**Approve API (`src/app/api/conversations/[id]/approve/route.ts`):** after the `call_insights` update succeeds, if `approved_asset_type ∈ LONG_FORM_ASSET_TYPES` AND no pending/generating brief exists for `(call_insight_id, asset_type)`, INSERT a `content_briefs` row with `status='pending'`. **Best-effort** — any lookup or insert error is `console.error`-logged and swallowed; the user-facing approve response never fails because of a brief queue issue. `thought_leadership` is intentionally excluded from `LONG_FORM_ASSET_TYPES` (Phase 3c). **Revoke** (`src/app/api/conversations/[id]/revoke/route.ts`) does NOT cancel pending/generating briefs — accepted v1 inefficiency; future enhancement could DELETE pending briefs on revoke.
+
+**Status endpoint (`GET /api/conversations/[id]/brief`):** returns most-recent brief row for a call_insight via `.maybeSingle()`. Response shape: `{ brief: { id, asset_type, status, chars, ready_at, output_tokens, has_content, error_message } | null }`. `chars` derived from `brief_content.length`; `output_tokens` derived from `generation_metadata.output_tokens`. `brief_content` is NEVER returned by this endpoint — content ships via `/download` only.
+
+**Download endpoint (`GET /api/conversations/[id]/brief/download`):** returns most-recent `status='ready'` brief as a markdown attachment. Headers: `Content-Type: text/markdown; charset=utf-8`, `Content-Disposition: attachment; filename="brief-{asset_type}-{YYYYMMDD}.md"` (date from `ready_at` UTC), `Cache-Control: no-store`. 404 JSON `{error: 'No ready brief found for this insight'}` if no ready brief exists. 500 + `console.error` if a `'ready'` row somehow has null content (defensive).
+
+**UI:**
+- **`useConversationBrief(callInsightId, { enabled })` hook** — polls the status endpoint every 5s while `status ∈ {pending, generating}`; stops on `ready`/`failed`/`null`. AbortController + setTimeout cleanup on unmount/id change. `enabled: false` short-circuits (no fetch, no polling) — used to gate by tab.
+- **`<ConversationBriefStatus callInsightId enabled />` component** — 4 visual states: amber pill "Queued for brief" (pending), amber pill with pulsing dot "Generating brief…" (generating), cyan button "Download brief ({pretty asset type})" (ready; programmatic anchor click against the /download endpoint), rose pill "Brief failed" with `error_message` in `title` (failed). Returns `null` when no brief exists yet.
+- **Integration** — `InsightCard` (gated by `isApprovedTab` so polling only happens on the Approved tab) and `DrawerActions` (gated by `row.review_status === 'approved'`) both render the status component in place of the old disabled Download brief placeholder. Disabled "View brief" placeholder remains in both surfaces — in-app brief viewer is Phase 3b.5 scope.
+
+**Filter persistence fix (bundled with 3b ship):** `useUrlState.setTab` now navigates to `?tab=X` directly instead of patching through `update()`, so `conversation_type`/`bracket`/`sort` all drop on tab switch. Fixes the "where's my row" wart where filters from one tab hid rows in the next. Sort dropping is intentional — simpler model, URL-shareable.
+
+**Chevron affordance (bundled with 3b ship):** 20×20 inline SVG chevron-right at the right edge of each `InsightCard` bottom row, `text-slate-400` default → `text-slate-600` on `group-hover`. Lives outside the actions row's `stopPropagation` boundary so clicking it bubbles up to open the detail drawer. Visual cue that the card is interactive.
+
+### Phase 3b.5 — BACKLOG
+
+- **Prompt editor in Agents tab.** Move `supabase/brief_prompts/*.md` from disk to a DB-backed table (modeled on `reddit_agent_configs` — version increments on save, enabled toggle). Add editor UI in the existing `/research` Agents tab so prompt iteration doesn't require SCP. Worker reads from DB instead of disk; cache-bust on save.
+- **In-app brief viewer.** Replace the currently-disabled "View brief" placeholder in `InsightCard` and `DrawerActions` with a viewer modal/drawer rendering `brief_content` as formatted markdown (separate code path from the file download).
+
+### Phase 3c — BACKLOG
+
+- **Draft generator for `thought_leadership` asset type.** Separate pipeline from briefs:
+  - New `content_drafts` table (NOT `content_briefs`).
+  - 3 author voices: `sudy`, `roshan`, `niladri` (the existing `suggested_author` field on `call_insights` already carries this).
+  - Short LinkedIn-style drafts, target < 300 words.
+  - In-app view/edit only — no download flow (drafts are meant to be posted directly via LinkedIn, not delivered as files).
+
+### Phase 3d — BACKLOG
+
+- **Compliance dashboard.** Scope undefined.
 
 ## Droplet Setup
 
@@ -183,11 +226,13 @@ Phase 3b: brief generator for 5 long-form asset types (blog_post, deep_article, 
 - **Deployed scripts (Ads)**: `push_to_supabase.py`, `poll_audit_requests.py`, `push_negatives_to_ads.py`, `fetch_campaign_metrics.py`
 - **Deployed scripts (Reddit)**: `reddit_rss_poller.py`, `score_posts.py`, `generate_tool_specs.py`, `generate_promotions.py`, `generate_briefs.py` (in `/opt/reddit-research-tool/`)
 - **Deployed scripts (AI Visibility)**: `fetch_ai_visibility.py`, `run_ai_visibility.sh`
+- **Deployed scripts (Content briefs — Phase 3b)**: `process_content_briefs.py`, `run_content_briefs.sh`, plus `brief_prompts/` directory (base.md + 5 asset-type-specific .md files)
 - **Cron (Ads)**: `*/5 * * * *` polls for on-demand audits + scheduled audits + push-to-ads requests
 - **Cron (Ads daily 2am)**: `fetch_campaign_metrics.py --days 1` (sources .env, logs to /var/log/campaign_metrics.log)
 - **Cron (Reddit)**: 9 jobs — RSS poller (every 30min), score_posts (hourly), generate_tool_specs (every 2h), generate_promotions (every 4h), generate_briefs (every 4h), subreddit_suggester (daily), feed_enricher (every 6h), poll_score_requests (*/5), poll_spec_requests (*/5)
 - **Cron (AI Visibility)**: `0 6 * * *` — daily 6am check via `run_ai_visibility.sh`, only runs if enough time elapsed based on schedule_frequency from config table (default: 2x-week = every 3 days)
 - **Cron (AI Visibility pending)**: `*/2 * * * *` — `run_ai_visibility.sh --check-pending` polls for pending runs created by "Run Now" button, picks up and executes them
+- **Cron (Content briefs — Phase 3b)**: `*/2 * * * *` — `run_content_briefs.sh` polls `content_briefs WHERE status='pending'` (MAX_PER_RUN=10), claims via conditional PATCH, generates brief via Claude Sonnet 4.6, writes brief_content + flips to `ready`. Inline retry 3x with 0/30/60s backoffs. Logs to `/opt/google-ads-auditor/logs/process_content_briefs_<YYYYMMDD>.log`
 - **All 6 Reddit scripts read agent configs from Supabase** (`reddit_agent_configs` table) for system prompts, model, temperature. tool_builder and brief_builder upgraded to Sonnet.
 - **Swap**: 1GB swap file added (droplet only has 1GB RAM)
 - **Env vars in `/opt/google-ads-auditor/.env`**: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_ADS_CUSTOMER_ID, GOOGLE_ADS_LOGIN_CUSTOMER_ID, OPENAI_API_KEY, ANTHROPIC_API_KEY, plus Google Ads OAuth credentials
@@ -477,6 +522,26 @@ Phase 3b: brief generator for 5 long-form asset types (blog_post, deep_article, 
 
 **Verification:**
 19. `npx tsc --noEmit` clean. `npm run build` clean — 32 pages generated, /conversations at 8.36 kB, all conversations API routes present alongside existing main routes (`/leads`, `/ai-visibility`, `/email-signatures/*`, `/errors`, `/research`). 1 build warning about `@next/swc` lockfile patch — non-fatal.
+
+### 2026-05-19 — Phase 3b Brief Generator Ship
+
+End-to-end brief generation pipeline shipped. See **Phase 3 Status → Phase 3b — SHIPPED** above for the full architecture. Deliverables checklist:
+
+1. Migration 018 `content_briefs` table (id, call_insight_id FK, asset_type CHECK, status CHECK, brief_content, prompt_used, model_version, generation_metadata JSONB, error_message, retry_count, ready_at, timestamps + updated_at trigger). Run in Supabase.
+2. `supabase/brief_prompts/` — `base.md` + 5 asset-type prompts (blog_post, deep_article, use_case, collateral, tool). Iterated once during ship (tighter outline guidance, added Brief length spec, consolidated Voice + Editorial sections, added explicit "voice is always Niladri's" rule across long-form and short-form prompts).
+3. `supabase/process_content_briefs.py` worker (stdlib urllib, claim-via-conditional-PATCH, inline retry 3x with 0/30/60s backoffs, MAX_PER_RUN=10) + `supabase/run_content_briefs.sh` wrapper.
+4. SCP'd worker + wrapper + brief_prompts/ to `/opt/google-ads-auditor/` on droplet. Smoke tested via `--max-briefs 1 --dry-run` (boots clean, fetched 0 candidates as expected pre-ship). Added cron `*/2 * * * * /opt/google-ads-auditor/run_content_briefs.sh`.
+5. Approve API (`src/app/api/conversations/[id]/approve/route.ts`) — best-effort INSERT into `content_briefs` for long-form asset types with idempotency check on `(call_insight_id, asset_type) IN ('pending','generating')`. Failures logged + swallowed; never breaks the approve response. Revoke route (`/revoke/route.ts`) gets a code comment noting that pending briefs are NOT cancelled on revoke (accepted v1 inefficiency).
+6. Status endpoint `GET /api/conversations/[id]/brief` — returns most-recent brief metadata via `.maybeSingle()`. Response: `{ brief: {...} | null }`. `chars` and `output_tokens` derived (not columns). `brief_content` NEVER returned by this endpoint.
+7. Download endpoint `GET /api/conversations/[id]/brief/download` — serves most-recent `status='ready'` brief as `text/markdown` attachment with filename `brief-{asset_type}-{YYYYMMDD}.md` and `Cache-Control: no-store`. 404 if no ready brief, 500 if ready row has null content (defensive).
+8. `useConversationBrief(callInsightId, { enabled })` hook — 5s polling while pending/generating, AbortController + setTimeout cleanup, `enabled: false` short-circuits.
+9. `<ConversationBriefStatus />` component — 4 states (amber Queued pill, amber Generating pill with pulsing dot, cyan Download button with programmatic anchor click against /download endpoint, rose Failed pill with error_message in title attr).
+10. Integration in `InsightCard.tsx` (gated by new `isApprovedTab` prop piped from `ConversationsView` via `p.url.tab === 'approved'`) and `DrawerActions.tsx` (gated by `row.review_status === 'approved'`). Disabled "View brief" placeholder retained in both (Phase 3b.5).
+11. Filter persistence fix bundled: `useUrlState.setTab` now navigates to `?tab=X` directly (drops all other params on tab switch). Fixes Phase 3a "where's my row" UX wart.
+12. Chevron affordance bundled: 20×20 inline slate-400 SVG on `InsightCard` bottom row, brightens to slate-600 on card group-hover. Outside the actions-row `stopPropagation` boundary so chevron clicks bubble to open the drawer.
+13. Builds clean (`npx tsc --noEmit` + `npm run build`). /conversations route went from 8.36 kB → 9.20 kB across the phase's UI additions. All deploys via push-to-main → Vercel auto-deploy.
+
+**One known scope deferral:** the `DrawerActions` test plan called for "View brief disabled on pending drawer". The pre-existing DrawerActions only renders the brief buttons inside the approved branch (pending shows Reject + Approve only), so View brief disabled does NOT appear on pending drawers — this is pre-existing behavior, untouched.
 
 ## Rules for Future Sessions
 1. **Components < 150 lines** — split if exceeding

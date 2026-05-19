@@ -15,6 +15,12 @@ export async function PATCH(
     }
 
     const admin = createAdminClient()
+
+    // v1: revoke does NOT cancel pending/generating content_briefs rows that
+    // may have been queued by a prior approve. The droplet worker will still
+    // process them and write the result — a small orphan-brief inefficiency
+    // we accept for now. Future enhancement: DELETE pending/generating briefs
+    // for this call_insight on revoke.
     const { data, error } = await admin
       .from('call_insights')
       .update({

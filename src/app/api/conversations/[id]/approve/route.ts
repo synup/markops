@@ -6,6 +6,12 @@ const VALID_ASSET_TYPES = new Set([
   'blog_post', 'deep_article', 'use_case', 'collateral', 'tool', 'thought_leadership',
 ])
 
+// Asset types that route to the Phase 3b brief generator on the droplet.
+// thought_leadership is handled by Phase 3c (content_drafts) — not here.
+const LONG_FORM_ASSET_TYPES = new Set([
+  'blog_post', 'deep_article', 'use_case', 'collateral', 'tool',
+])
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -53,6 +59,40 @@ export async function PATCH(
     if (!data) {
       return NextResponse.json({ error: 'not found' }, { status: 404 })
     }
+
+    // Best-effort: queue a brief for the droplet worker. Failures here are
+    // logged but never break the approve response — the brief can be
+    // re-inserted manually later.
+    if (LONG_FORM_ASSET_TYPES.has(assetType)) {
+      try {
+        const { data: existing, error: lookupErr } = await admin
+          .from('content_briefs')
+          .select('id')
+          .eq('call_insight_id', data.id)
+          .eq('asset_type', assetType)
+          .in('status', ['pending', 'generating'])
+          .limit(1)
+          .maybeSingle()
+
+        if (lookupErr) {
+          console.error('content_briefs lookup failed (continuing):', lookupErr)
+        } else if (!existing) {
+          const { error: insertErr } = await admin
+            .from('content_briefs')
+            .insert({
+              call_insight_id: data.id,
+              asset_type: assetType,
+              status: 'pending',
+            })
+          if (insertErr) {
+            console.error('content_briefs insert failed (continuing):', insertErr)
+          }
+        }
+      } catch (briefErr) {
+        console.error('content_briefs queue step threw (continuing):', briefErr)
+      }
+    }
+
     return NextResponse.json({ row: data })
   } catch (err) {
     if (err instanceof Response) return err

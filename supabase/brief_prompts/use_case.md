@@ -2,6 +2,7 @@
 
 ## Specs
 - Length target: 1500-2000 words
+- Brief length: 600-900 words. The brief is a spec, not a draft.
 - Format: product-led problem-solution content. Describe a specific operational problem and how Synup solves it.
 - Primary distribution: Synup use cases section, sales enablement, prospect outreach
 - Reading time: 7-10 minutes
@@ -68,37 +69,11 @@ Frame these as legitimate trade-offs, not strawmen. Agencies and operators are s
 - Search intent match: Commercial investigation and how-to — readers researching solutions to specific operational problems
 - SERP gap: What is missing from currently-ranking content that this piece can fill
 
-## Voice and style guide
-Match Niladri's voice. Use cases are operational and tactical — read like an operator explaining a workflow to a peer, not a vendor pitch.
+## Voice
+Match Niladri's voice: practitioner perspective, operator-to-operator, conversational, direct, plain over formal. Specific over abstract. Strong editorial stances over hedging. Avoid AI-detection patterns (em dashes, parallel noun lists of 4+ items, 3-verb tricolons, "From X to Y" closers, "without doing X" framing, formal verbs like propagates / authenticates / absorbed). Target AI-detection score: high teens to low 20s. Add a brief-specific voice note if anything beyond the default applies to this piece.
 
-**Voice characteristics:**
-- Short-to-medium sentences
-- Conversational and direct
-- Plain language over formal
-- Specific over abstract — concrete workflow steps beat generic capability claims
-- Strong editorial stances over hedging
-
-**Avoid AI-detection patterns:**
-- No em dashes (use periods or parentheses)
-- No 4+ item parallel noun lists
-- No 3-verb tricolons
-- No "From X to Y" closers
-- No "without doing X" framing
-- No passive "are available on request" tails
-- No formal verbs (propagates, authenticates, absorbed)
-- No specific weekday references unless time-relevant
-
-**Target AI-detection score:** high teens to low 20s.
-
-## Editorial standards
-
-**Information gain over surface coverage:** Show the specific operational steps. A use case that reads like a product page does not exist. Specifics about workflow, configuration, edge cases, prerequisites are what make this useful.
-
-**Information density over word count:** Do not pad. Use cases work when every section adds operational specifics.
-
-**Semantic alignment to Synup's core topics:** Reinforce Synup's topical authority on local marketing operations, agency-native infrastructure, listings, reputation, or AI-agent-driven local marketing.
-
-**SME augmentation:** Use case briefs benefit from PM and CS input. List 3-5 specific questions for an SME (Roshan for product/CS, Sudy for sales perspective, account owner for customer-specific context) on workflow specifics, edge cases, and outcome benchmarks the writer would not know from outside.
+## SME augmentation
+3-5 specific questions for Niladri (marketing strategy), Sudy (sales perspective), or Roshan (product/CS) that would strengthen the piece. One line each.
 
 ## CTAs
 - Primary CTA: "Book a demo to see this in action" or "Try [specific product] for [audience]"
@@ -110,10 +85,12 @@ Match Niladri's voice. Use cases are operational and tactical — read like an o
 - Repurposing ideas: Demo walkthrough video, LinkedIn workflow post, sales rep talk track, comparison content vs alternatives
 
 ## Guardrails
-- Do not write the use case itself — only the brief
+- Voice is always Niladri's. The `suggested_author` field from the source insight is for thought_leadership attribution only (Phase 3c) and does not affect long-form voice.
+- Do not write the asset itself — only the brief.
+- Fill in every section with concrete content based on the source material; no placeholder text.
+- The angle/thesis/use case must be specific to this conversation insight, not generic to the topic.
+- Do not pad sections. Natural length with high information density beats padded length.
+- Every section must demonstrate information gain — something the reader cannot get from generic SERP results.
+- Do not exceed the brief length target. The brief is a spec, not a draft.
 - This is product-led content, not a customer success story. Do not center it on a specific named customer's outcomes.
-- Fill in every section with concrete content based on the source material; no placeholder text
-- The workflow walkthrough must be specific and operationally credible — vague feature claims fail
-- Do not pad sections — natural length with high information density beats padded length
-- Every section must demonstrate information gain — specifics a prospect cannot get from generic product pages
 - Compare to alternatives fairly. Strawman comparisons damage credibility with sophisticated readers.

@@ -46,6 +46,7 @@ What gap in existing free tools this fills. The capability or workflow that oper
 Tool copy is functional and direct. Headline states what the tool does. UI copy guides the user without preamble. Apply Niladri's voice rules and AI-pattern avoidance from the long-form templates.
 
 ## Guardrails
+- Voice is always Niladri's. The `suggested_author` field from the source insight is for thought_leadership attribution only (Phase 3c) and does not affect this brief.
 - Do not build the tool itself — only the brief
 - MVP features must be scoped tight enough to ship in 2-4 weeks
 - Privacy-by-default: if the tool processes user data, client-side processing is the default unless server-side is operationally required

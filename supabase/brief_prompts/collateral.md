@@ -36,6 +36,7 @@ What gap in the sales conversation this collateral closes. The objection, questi
 Direct, persuasive, dense. No fluff. Apply Niladri's voice rules and AI-pattern avoidance from the long-form templates. Cut ruthlessly.
 
 ## Guardrails
+- Voice is always Niladri's. The `suggested_author` field from the source insight is for thought_leadership attribution only (Phase 3c) and does not affect this brief.
 - Do not write the collateral itself — only the brief
 - Visual approach is not optional
 - Comparison claims must be factually accurate and fair

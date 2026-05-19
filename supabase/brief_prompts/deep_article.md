@@ -2,6 +2,7 @@
 
 ## Specs
 - Length target: 2500-4000 words
+- Brief length: 900-1200 words. The brief is a spec, not a draft.
 - Format: research-driven analytical — pick one: research piece, synthesized analysis, industry framework, contrarian deep dive, or reference guide
 - Primary distribution: Synup blog (long-form section), gated PDF version optional
 - Reading time: 12-20 minutes
@@ -38,7 +39,7 @@ What original research, synthesis, or data anchors this piece:
 If no original data is available, note that the piece should lean on synthesis of multiple specific customer conversations and named sources.
 
 ## Outline
-Long-form structure with deep sections. For each section, 3-5 sentences on what it accomplishes, the argumentative move it makes, and the evidence it brings in.
+Long-form structure with deep sections. For each section, 1-2 sentences on what it accomplishes, the argumentative move it makes, and the evidence it brings in.
 
 ### {Section 1}
 - Argumentative move (what is being established)
@@ -70,37 +71,11 @@ Long-form structure with deep sections. For each section, 3-5 sentences on what 
 - SERP gap: What is missing from currently-ranking content that this piece can fill
 - Target SERP features: Featured snippet, People Also Ask, knowledge panel candidacy
 
-## Voice and style guide
-Match Niladri's voice for all long-form Synup content. The piece should read like a knowledgeable operator writing to a peer, not a vendor blog post.
+## Voice
+Match Niladri's voice: practitioner perspective, operator-to-operator, conversational, direct, plain over formal. Specific over abstract. Strong editorial stances over hedging. Avoid AI-detection patterns (em dashes, parallel noun lists of 4+ items, 3-verb tricolons, "From X to Y" closers, "without doing X" framing, formal verbs like propagates / authenticates / absorbed). Target AI-detection score: high teens to low 20s. Add a brief-specific voice note if anything beyond the default applies to this piece.
 
-**Voice characteristics:**
-- Short-to-medium sentences, no long clause stacks
-- Conversational and direct
-- Plain language over formal
-- Specific over abstract — "12-location franchisee in Texas managing GBP through us" beats "multi-location business"
-- Strong editorial stances over hedging
-
-**Avoid AI-detection patterns:**
-- No em dashes (use periods or parentheses)
-- No 4+ item parallel noun lists
-- No 3-verb tricolons ("we plan, build, and scale...")
-- No "From X to Y" closers
-- No "without doing X" framing
-- No passive "are available on request" tails
-- No formal verbs (propagates, authenticates, absorbed)
-- No specific weekday references unless time-relevant
-
-**Target AI-detection score:** high teens to low 20s.
-
-## Editorial standards
-
-**Information gain over surface coverage:** Every section must give the reader something they would not find in the top 10 SERP results for the topic. If a section reads like any competitor's version of the same content, it should not exist.
-
-**Information density over word count:** Do not pad to hit the target length. A 2800-word piece with high information density beats a 4000-word piece with filler. If the angle does not support the upper end of the length target, write to the natural length and flag the deviation in editorial review.
-
-**Semantic alignment to Synup's core topics:** The piece must reinforce Synup's topical authority on local marketing operations, agency-native infrastructure, listings management, reputation, or AI-agent-driven local marketing. Tangential topics dilute topical authority. If the angle drifts too far from these clusters, reframe it so it ladders back.
-
-**SME augmentation:** Long-form content should not be sourced only from one customer conversation. List 3-5 specific questions for an SME — Niladri (marketing strategy), Sudy (sales perspective), Roshan (product/CS perspective), or an external expert — that would strengthen the piece. The writer is expected to conduct these interviews before drafting.
+## SME augmentation
+3-5 specific questions for Niladri (marketing strategy), Sudy (sales perspective), or Roshan (product/CS) that would strengthen the piece. One line each.
 
 ## CTAs
 - Primary CTA: The main action the piece drives toward (deep articles typically convert to demos, premium content, or sales conversations)
@@ -111,9 +86,11 @@ Match Niladri's voice for all long-form Synup content. The piece should read lik
 - Repurposing ideas: LinkedIn thought leadership thread, gated PDF version for lead capture, sales enablement excerpts, conference talk angle, podcast pitch
 
 ## Guardrails
-- Do not write the article itself — only the brief
-- Fill in every section with concrete content based on the source material; no placeholder text
-- The thesis and outline must be specific to this conversation insight, not generic to the topic
-- Do not pad sections or inflate length to hit the upper bound — natural length with high information density beats padded length
-- Every section must demonstrate information gain — something the reader cannot get from generic SERP results
-- If research methodology is weak (no original data, only one conversation), flag this in the brief so the writer or editor decides whether to commission additional research before drafting
+- Voice is always Niladri's. The `suggested_author` field from the source insight is for thought_leadership attribution only (Phase 3c) and does not affect long-form voice.
+- Do not write the asset itself — only the brief.
+- Fill in every section with concrete content based on the source material; no placeholder text.
+- The angle/thesis/use case must be specific to this conversation insight, not generic to the topic.
+- Do not pad sections. Natural length with high information density beats padded length.
+- Every section must demonstrate information gain — something the reader cannot get from generic SERP results.
+- Do not exceed the brief length target. The brief is a spec, not a draft.
+- If research methodology is weak (no original data, only one conversation), flag this in the brief so the writer or editor decides whether to commission additional research before drafting.

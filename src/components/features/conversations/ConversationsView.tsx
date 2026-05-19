@@ -86,6 +86,7 @@ export function ConversationsView(p: Props) {
                   focused={i === p.focusedIndex}
                   exiting={p.exitingIds.has(row.id)}
                   mode={p.expandedCardId === row.id ? p.cardMode : 'collapsed'}
+                  isApprovedTab={p.url.tab === 'approved'}
                   onModeChange={m => p.onCardModeChange(row.id, m)}
                   onOpenDrawer={p.onOpenDrawer}
                   onApprove={at => p.onApprove(row.id, at)}

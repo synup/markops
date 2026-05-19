@@ -6,6 +6,7 @@ import { Chip } from '@/components/ui/Chip'
 import { Button } from '@/components/ui/Button'
 import { ApprovalPicker, ASSET_TYPES, type AssetType } from './ApprovalPicker'
 import { RejectInput } from './RejectInput'
+import { ConversationBriefStatus } from './ConversationBriefStatus'
 
 export type CardMode = 'collapsed' | 'approve' | 'reject'
 
@@ -31,6 +32,7 @@ type Props = {
   focused?: boolean
   exiting?: boolean
   mode?: CardMode
+  isApprovedTab?: boolean
   onModeChange?: (mode: CardMode) => void
   onOpenDrawer: (id: string) => void
   onApprove: (assetType: AssetType) => void
@@ -39,7 +41,7 @@ type Props = {
 }
 
 export function InsightCard({
-  row, focused, exiting, mode = 'collapsed',
+  row, focused, exiting, mode = 'collapsed', isApprovedTab = false,
   onModeChange, onOpenDrawer, onApprove, onReject, onRevoke,
 }: Props) {
   const sc = row.sales_calls
@@ -101,7 +103,7 @@ export function InsightCard({
           {row.review_status === 'approved' && (
             <>
               <Button variant="disabled" title="Coming in Phase 3b">View brief</Button>
-              <Button variant="disabled" title="Coming in Phase 3b">Download brief</Button>
+              <ConversationBriefStatus callInsightId={row.id} enabled={isApprovedTab} />
               <Button variant="secondary" onClick={onRevoke}>Revoke</Button>
             </>
           )}

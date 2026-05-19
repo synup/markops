@@ -62,7 +62,7 @@ export function InsightCard({
     <div
       onClick={() => mode === 'collapsed' && onOpenDrawer(row.id)}
       className={[
-        'rounded-xl border-[0.5px] border-slate-200 bg-white p-5 transition-[transform,opacity,border-color,box-shadow] duration-[250ms]',
+        'group rounded-xl border-[0.5px] border-slate-200 bg-white p-5 transition-[transform,opacity,border-color,box-shadow] duration-[250ms]',
         mode === 'collapsed' ? 'cursor-pointer hover:border-slate-300 hover:shadow-sm' : '',
         focused ? 'ring-2 ring-cyan-500/40' : '',
         exiting ? 'translate-x-8 opacity-0' : '',
@@ -93,23 +93,26 @@ export function InsightCard({
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2" onClick={stop}>
-          {row.review_status === 'pending' && (
-            <>
-              <Button variant="secondary" onClick={() => onModeChange?.('reject')}>Reject</Button>
-              <Button variant="primary"   onClick={() => onModeChange?.('approve')}>Approve</Button>
-            </>
-          )}
-          {row.review_status === 'approved' && (
-            <>
-              <Button variant="disabled" title="Coming in Phase 3b">View brief</Button>
-              <ConversationBriefStatus callInsightId={row.id} enabled={isApprovedTab} />
+        <div className="flex items-center gap-3">
+          <div className="flex flex-wrap gap-2" onClick={stop}>
+            {row.review_status === 'pending' && (
+              <>
+                <Button variant="secondary" onClick={() => onModeChange?.('reject')}>Reject</Button>
+                <Button variant="primary"   onClick={() => onModeChange?.('approve')}>Approve</Button>
+              </>
+            )}
+            {row.review_status === 'approved' && (
+              <>
+                <Button variant="disabled" title="Coming in Phase 3b">View brief</Button>
+                <ConversationBriefStatus callInsightId={row.id} enabled={isApprovedTab} />
+                <Button variant="secondary" onClick={onRevoke}>Revoke</Button>
+              </>
+            )}
+            {row.review_status === 'rejected' && (
               <Button variant="secondary" onClick={onRevoke}>Revoke</Button>
-            </>
-          )}
-          {row.review_status === 'rejected' && (
-            <Button variant="secondary" onClick={onRevoke}>Revoke</Button>
-          )}
+            )}
+          </div>
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true" className="shrink-0 text-slate-400 group-hover:text-slate-600 transition-colors"><path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </div>
       </div>
 

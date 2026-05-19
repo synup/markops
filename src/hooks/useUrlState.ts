@@ -57,7 +57,11 @@ export function useUrlState() {
 
   return {
     ...state,
-    setTab:              (t: ReviewStatus)          => update({ tab: t }),
+    // Tab switch resets all filter/sort params — they are tab-scoped UX and
+    // persisting them caused "where's my row" wart (filters from one tab
+    // hiding rows in the next). Only the tab param survives.
+    setTab:              (t: ReviewStatus)          =>
+      router.replace(`${pathname}?tab=${t}`, { scroll: false }),
     setConversationType: (c: ConversationType | null) => update({ conversation_type: c }),
     setBracket:          (b: Bracket | null)         => update({ bracket: b }),
     setSort:             (s: Sort | null)            => update({ sort: s }),

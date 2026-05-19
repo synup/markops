@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { type ConversationRow } from '@/types/conversation'
 import { ApprovalPicker, type AssetType } from './ApprovalPicker'
 import { RejectInput } from './RejectInput'
+import { ConversationBriefStatus } from './ConversationBriefStatus'
 
 type Props = {
   row: ConversationRow
@@ -16,6 +17,7 @@ type Mode = 'collapsed' | 'approve' | 'reject'
 
 export function DrawerActions({ row, onApprove, onReject, onRevoke }: Props) {
   const [mode, setMode] = useState<Mode>('collapsed')
+  const isApproved = row.review_status === 'approved'
 
   if (mode === 'approve') {
     return (
@@ -55,7 +57,7 @@ export function DrawerActions({ row, onApprove, onReject, onRevoke }: Props) {
           </button>
         </>
       )}
-      {row.review_status === 'approved' && (
+      {isApproved && (
         <>
           <button
             type="button"
@@ -65,14 +67,7 @@ export function DrawerActions({ row, onApprove, onReject, onRevoke }: Props) {
           >
             View brief
           </button>
-          <button
-            type="button"
-            disabled
-            title="Coming in Phase 3b"
-            className="rounded-md border-[0.5px] border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-400 cursor-not-allowed"
-          >
-            Download brief
-          </button>
+          <ConversationBriefStatus callInsightId={row.id} enabled={isApproved} />
           <button
             type="button"
             onClick={onRevoke}

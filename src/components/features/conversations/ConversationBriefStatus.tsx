@@ -61,16 +61,18 @@ export function ConversationBriefStatus({ callInsightId, enabled = true }: Props
 
   // status === 'ready'
   const label = ASSET_TYPE_LABEL[brief.asset_type] ?? brief.asset_type
+  const downloadUrl = `/api/conversations/${encodeURIComponent(callInsightId)}/brief/download`
   return (
     <button
       type="button"
       className={CYAN_BUTTON}
       onClick={() => {
-        // wired in item 4 (download endpoint)
-        console.log('Download brief (placeholder)', {
-          briefId: brief.id,
-          asset_type: brief.asset_type,
-        })
+        const a = document.createElement('a')
+        a.href = downloadUrl
+        a.setAttribute('download', '')
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
       }}
     >
       Download brief ({label})

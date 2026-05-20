@@ -3,12 +3,17 @@
 Generate content briefs for approved call_insights.
 Phase 3b of the Content Intelligence Workflow.
 
+Prompts loaded from content_brief_prompts table (Supabase) as of migration 019.
+Disk files in brief_prompts/ retained as seed-source reference only — no longer
+read at runtime. Edits to the table (via SQL today, via UI after Phase 3b.5 item 4)
+take effect on the next cron run since prompts are cached only per-invocation.
+
 For each content_briefs row with status='pending' (oldest first):
   1. Claim the row by PATCHing status='generating' (conditional on status=pending
      so concurrent workers cannot double-pick).
   2. Fetch the linked call_insight + sales_call (customer name/company, problem
      statement, marketing summary, verbatim quotes, asset rationale, author).
-  3. Compose system prompt = base.md + brief_prompts/<asset_type>.md.
+  3. Compose system prompt = base + <asset_type> rows from content_brief_prompts.
   4. Call Claude Sonnet 4.6 with the call context as user message, with up to
      MAX_ATTEMPTS inline retries on transient generation failures.
   5. PATCH brief_content, prompt_used, model_version, generation_metadata,
@@ -68,12 +73,7 @@ MODEL_ID          = 'claude-sonnet-4-6'
 MAX_TOKENS        = 8192
 
 VALID_ASSET_TYPES = ('blog_post', 'deep_article', 'use_case', 'collateral', 'tool')
-
-SCRIPT_DIR        = os.path.dirname(os.path.abspath(__file__))
-PROMPTS_DIR       = os.environ.get(
-    'BRIEF_PROMPTS_DIR',
-    os.path.join(SCRIPT_DIR, 'brief_prompts'),
-)
+VALID_PROMPT_NAMES = ('base',) + VALID_ASSET_TYPES
 
 SUPABASE_URL              = os.environ.get('SUPABASE_URL', '')
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
@@ -92,7 +92,13 @@ class RateLimitError(Exception):
 
 
 class FetchError(Exception):
-    """Per-brief failure fetching joined call_insight / sales_call — skip."""
+    """Per-brief transient fetch failure (joined call_insight / sales_call,
+    or transient prompt fetch) — inline-retried up to MAX_ATTEMPTS."""
+
+
+class PromptNotFoundError(Exception):
+    """Requested prompt row missing from content_brief_prompts — config
+    issue, not transient. Treated as TERMINAL failure for the brief."""
 
 
 class GenerationError(Exception):
@@ -154,22 +160,52 @@ def _read_body(e):
         return ''
 
 
-# ─── prompt loaders ───────────────────────────────────────────────────
-def load_base_prompt():
-    path = os.path.join(PROMPTS_DIR, 'base.md')
-    with open(path, 'r', encoding='utf-8') as f:
-        return f.read()
+# ─── prompt loader (DB-backed, per-invocation cache) ──────────────────
+# Cache lives only for one cron run. Next run picks up any prompt edits made
+# in the table between invocations. Acceptable staleness window: ≤ 2 minutes
+# (matches cron cadence) plus the in-flight run's remaining briefs.
+_prompt_cache: dict = {}
 
 
-def load_asset_prompt(asset_type):
-    if asset_type not in VALID_ASSET_TYPES:
-        raise GenerationError(f'invalid_asset_type value={asset_type!r}')
-    path = os.path.join(PROMPTS_DIR, f'{asset_type}.md')
+def get_prompt(name: str) -> str:
+    """Fetch a prompt row's content from content_brief_prompts, with cache.
+
+    Raises:
+      PromptNotFoundError  row missing for `name` — TERMINAL for the brief.
+      FetchError           HTTP/network failure — caller should inline-retry.
+    """
+    cached = _prompt_cache.get(name)
+    if cached is not None:
+        return cached
+
+    url = (
+        f'{SUPABASE_URL}/rest/v1/content_brief_prompts'
+        f'?prompt_name=eq.{quote(name, safe="")}'
+        f'&select=prompt_content'
+    )
+    req = Request(url, headers=_supabase_headers())
     try:
-        with open(path, 'r', encoding='utf-8') as f:
-            return f.read()
-    except OSError as e:
-        raise GenerationError(f'asset_prompt_load_failed path={path!r} detail={e!r}') from e
+        with urlopen(req, timeout=HTTP_TIMEOUT_S) as resp:
+            rows = json.loads(resp.read().decode())
+    except HTTPError as e:
+        raise FetchError(
+            f'prompt_fetch_failed name={name!r} http_status={e.code} '
+            f'detail={_read_body(e)[:300]!r}'
+        ) from e
+    except URLError as e:
+        raise FetchError(f'prompt_fetch_url_error name={name!r} reason={e.reason!r}') from e
+
+    if not rows:
+        raise PromptNotFoundError(
+            f"Prompt {name!r} missing from content_brief_prompts table — check seed"
+        )
+    content = rows[0].get('prompt_content')
+    if not content:
+        raise PromptNotFoundError(
+            f"Prompt {name!r} has empty prompt_content"
+        )
+    _prompt_cache[name] = content
+    return content
 
 
 # ─── Supabase reads ───────────────────────────────────────────────────
@@ -330,8 +366,11 @@ def _patch_brief(brief_id, payload, error_event):
 
 # ─── Anthropic call ───────────────────────────────────────────────────
 def build_system_prompt(asset_type):
-    base  = load_base_prompt()
-    asset = load_asset_prompt(asset_type)
+    """Concatenate the 'base' prompt + the asset-type-specific prompt from
+    content_brief_prompts. Propagates PromptNotFoundError (terminal) and
+    FetchError (transient) to the caller for handling."""
+    base  = get_prompt('base')
+    asset = get_prompt(asset_type)
     return f'{base}\n\n---\n\n{asset}'
 
 
@@ -489,15 +528,13 @@ def process_one_brief(brief, dry_run):
     asset_type = brief['asset_type']
     insight_id = brief['call_insight_id']
 
-    # 1. Build system prompt (validates asset_type + loads files). Permanent
-    #    failure — don't claim a row we can't process.
-    try:
-        system_prompt = build_system_prompt(asset_type)
-    except GenerationError as e:
-        log('error', 'prompt_build_failed',
-            brief_id=brief_id, asset_type=asset_type, detail=str(e)[:300])
+    # 1. Pre-validate asset_type (pure local check, no DB). Terminal if
+    #    invalid — no point claiming a row we cannot route to a prompt.
+    if asset_type not in VALID_ASSET_TYPES:
+        log('error', 'invalid_asset_type',
+            brief_id=brief_id, asset_type=asset_type)
         if not dry_run:
-            write_terminal_failure(brief_id, f'prompt_build: {e}')
+            write_terminal_failure(brief_id, f'invalid_asset_type: {asset_type!r}')
         return 'failed'
 
     # 2. Claim the row.
@@ -510,7 +547,10 @@ def process_one_brief(brief, dry_run):
             log('error', 'claim_error', brief_id=brief_id, detail=str(e)[:300])
             return 'failed'
 
-    # 3. Inline retry loop: context fetch + Claude call + parse.
+    # 3. Inline retry loop: prompt fetch + context fetch + Claude call + parse.
+    #    Prompt fetch is inside the loop so transient prompt-fetch failures
+    #    (network/5xx → FetchError) also get the 3x retry treatment. The cache
+    #    in get_prompt makes repeat fetches free after the first success.
     last_error = None
     for attempt_idx, wait_s in enumerate(RETRY_BACKOFF_S):
         attempt = attempt_idx + 1
@@ -520,11 +560,19 @@ def process_one_brief(brief, dry_run):
             time.sleep(wait_s)
 
         try:
-            context = fetch_call_context(insight_id)
+            system_prompt = build_system_prompt(asset_type)
+            context       = fetch_call_context(insight_id)
+        except PromptNotFoundError as e:
+            # Config issue — no amount of retry will help.
+            log('error', 'prompt_not_found',
+                brief_id=brief_id, asset_type=asset_type, detail=str(e)[:300])
+            if not dry_run:
+                write_terminal_failure(brief_id, f'prompt_not_found: {e}')
+            return 'failed'
         except FetchError as e:
-            last_error = f'context_fetch: {e}'
+            last_error = f'fetch: {e}'
             log('warning', 'attempt_failed',
-                brief_id=brief_id, attempt=attempt, stage='context',
+                brief_id=brief_id, attempt=attempt, stage='fetch',
                 detail=str(e)[:300])
             if not dry_run:
                 write_attempt_progress(brief_id, attempt, last_error)
@@ -607,16 +655,16 @@ def main():
         log('error', 'missing_env_vars', vars=','.join(missing))
         return 1
 
-    if not os.path.isdir(PROMPTS_DIR):
-        log('error', 'prompts_dir_missing', path=PROMPTS_DIR)
-        return 1
-
-    # Sanity check: base.md must exist (asset prompts loaded lazily per brief).
+    # Pre-flight: verify the 'base' prompt is reachable in content_brief_prompts.
+    # Asset-type prompts are loaded lazily per brief (each gets its own
+    # terminal-vs-transient classification inside the retry loop).
     try:
-        load_base_prompt()
-    except OSError as e:
-        log('error', 'base_prompt_load_failed',
-            path=os.path.join(PROMPTS_DIR, 'base.md'), detail=repr(e))
+        get_prompt('base')
+    except PromptNotFoundError as e:
+        log('error', 'base_prompt_missing_in_db', detail=str(e)[:300])
+        return 1
+    except FetchError as e:
+        log('error', 'base_prompt_fetch_failed', detail=str(e)[:300])
         return 1
 
     start = time.monotonic()
@@ -625,7 +673,7 @@ def main():
         max_briefs=args.max_briefs,
         brief_id=args.brief_id,
         model=MODEL_ID,
-        prompts_dir=PROMPTS_DIR)
+        prompt_source='content_brief_prompts (DB)')
 
     fetch_limit = min(args.max_briefs, MAX_PER_RUN) if args.max_briefs else MAX_PER_RUN
 

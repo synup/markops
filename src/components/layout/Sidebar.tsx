@@ -29,6 +29,7 @@ const NAV_ITEMS: Array<{ label: string; href: string; icon: ReactNode }> = [
   { label: 'Leads', href: '/leads', icon: '◆' },
   { label: 'Reddit', href: '/research', icon: '◈' },
   { label: 'Conversations', href: '/conversations', icon: MessageSquareIcon },
+  { label: 'Brief prompts', href: '/agents/brief-prompts', icon: '✎' },
   { label: 'AI Visibility', href: '/ai-visibility', icon: '◉' },
   { label: 'pSEO Content', href: '/pseo-content', icon: '◎' },
   { label: 'Email Sigs', href: '/email-signatures', icon: '✉' },

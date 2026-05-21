@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth/requireAdmin'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-// Phase 3b: returns the most-recent content_briefs row for a call_insight,
-// used by the Approved tab to render "Generating brief…" pills and to enable
-// the Download brief button once status='ready'. brief_content is never
-// returned here — it ships via a separate /download endpoint.
+// Phase 3b: returns the most-recent content_briefs row for a call_insight.
+// Default shape (status + metadata only) drives the "Generating brief…" pill
+// and the Download brief button enablement. Pass ?content=true to also
+// include brief_content in the response — used by the in-app brief viewer
+// modal (Phase 3b.5). The file download still goes through /download so
+// browsers get a proper Content-Disposition.
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -17,6 +19,9 @@ export async function GET(
     if (!id) {
       return NextResponse.json({ error: 'missing id' }, { status: 400 })
     }
+
+    const includeContent =
+      new URL(request.url).searchParams.get('content') === 'true'
 
     const admin = createAdminClient()
     const { data, error } = await admin
@@ -38,18 +43,21 @@ export async function GET(
     const briefContent = data.brief_content as string | null
     const metadata = data.generation_metadata as { output_tokens?: number | null } | null
 
-    return NextResponse.json({
-      brief: {
-        id: data.id,
-        asset_type: data.asset_type,
-        status: data.status,
-        chars: briefContent ? briefContent.length : null,
-        ready_at: data.ready_at,
-        output_tokens: metadata?.output_tokens ?? null,
-        has_content: !!briefContent && briefContent.length > 0,
-        error_message: data.error_message,
-      },
-    })
+    const brief: Record<string, unknown> = {
+      id: data.id,
+      asset_type: data.asset_type,
+      status: data.status,
+      chars: briefContent ? briefContent.length : null,
+      ready_at: data.ready_at,
+      output_tokens: metadata?.output_tokens ?? null,
+      has_content: !!briefContent && briefContent.length > 0,
+      error_message: data.error_message,
+    }
+    if (includeContent) {
+      brief.brief_content = briefContent
+    }
+
+    return NextResponse.json({ brief })
   } catch (err) {
     if (err instanceof Response) return err
     console.error('GET brief error:', err)

@@ -25,6 +25,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: MessageSquareIcon,
     children: [
       { label: 'Brief prompts', href: '/conversations/brief-prompts' },
+      { label: 'Draft prompts', href: '/conversations/draft-prompts' },
     ],
   },
   { label: 'AI Visibility', href: '/ai-visibility', icon: '◉' },

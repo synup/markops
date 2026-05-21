@@ -21,6 +21,8 @@ export async function PATCH(
     // process them and write the result — a small orphan-brief inefficiency
     // we accept for now. Future enhancement: DELETE pending/generating briefs
     // for this call_insight on revoke.
+    // Same applies to content_drafts — orphaned drafts accepted as v1
+    // inefficiency, same cleanup path when we wire it.
     const { data, error } = await admin
       .from('call_insights')
       .update({

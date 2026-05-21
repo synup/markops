@@ -7,10 +7,17 @@ const VALID_ASSET_TYPES = new Set([
 ])
 
 // Asset types that route to the Phase 3b brief generator on the droplet.
-// thought_leadership is handled by Phase 3c (content_drafts) — not here.
+// thought_leadership routes to Phase 3c (content_drafts) — see DRAFT_DEFAULT_VOICE below.
 const LONG_FORM_ASSET_TYPES = new Set([
   'blog_post', 'deep_article', 'use_case', 'collateral', 'tool',
 ])
+
+// v1 defaults all thought_leadership drafts to Niladri's voice. Per-approval
+// voice choice is a future enhancement. Niladri can edit the generated draft
+// in the in-app editor regardless. (call_insights.suggested_author exists and
+// also constrains to sudy/roshan/niladri — keep that as the upgrade path
+// when we surface a per-approval picker.)
+const DRAFT_DEFAULT_VOICE = 'niladri'
 
 export async function PATCH(
   request: Request,
@@ -90,6 +97,40 @@ export async function PATCH(
         }
       } catch (briefErr) {
         console.error('content_briefs queue step threw (continuing):', briefErr)
+      }
+    }
+
+    // Best-effort: queue a thought_leadership draft for the droplet worker.
+    // Idempotency includes 'ready' (unlike briefs) — a successful generation
+    // shouldn't trigger a duplicate on re-approve. Failures swallowed; the
+    // approve response stays successful regardless.
+    if (assetType === 'thought_leadership') {
+      try {
+        const { data: existing, error: lookupErr } = await admin
+          .from('content_drafts')
+          .select('id')
+          .eq('call_insight_id', data.id)
+          .eq('author_voice', DRAFT_DEFAULT_VOICE)
+          .in('status', ['pending', 'generating', 'ready'])
+          .limit(1)
+          .maybeSingle()
+
+        if (lookupErr) {
+          console.error('content_drafts lookup failed (continuing):', lookupErr)
+        } else if (!existing) {
+          const { error: insertErr } = await admin
+            .from('content_drafts')
+            .insert({
+              call_insight_id: data.id,
+              author_voice: DRAFT_DEFAULT_VOICE,
+              status: 'pending',
+            })
+          if (insertErr) {
+            console.error('content_drafts insert failed (continuing):', insertErr)
+          }
+        }
+      } catch (draftErr) {
+        console.error('content_drafts queue step threw (continuing):', draftErr)
       }
     }
 

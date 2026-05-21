@@ -7,6 +7,7 @@ import { ApprovalPicker, type AssetType } from './ApprovalPicker'
 import { RejectInput } from './RejectInput'
 import { ConversationBriefStatus } from './ConversationBriefStatus'
 import { BriefViewerModal } from './BriefViewerModal'
+import { ConversationDraftStatus } from './ConversationDraftStatus'
 
 type Props = {
   row: ConversationRow
@@ -22,10 +23,12 @@ export function DrawerActions({ row, onApprove, onReject, onRevoke }: Props) {
   const [viewerOpen, setViewerOpen] = useState(false)
   const isApproved = row.review_status === 'approved'
 
+  const isThoughtLeadership = row.approved_asset_type === 'thought_leadership'
   // Gate the View brief button on a ready brief existing for this insight.
+  // Disabled for thought_leadership (which uses content_drafts, not briefs).
   // The hook is also active inside <ConversationBriefStatus> below — accepted
   // duplication so each component stays self-contained.
-  const { brief } = useConversationBrief(row.id, { enabled: isApproved })
+  const { brief } = useConversationBrief(row.id, { enabled: isApproved && !isThoughtLeadership })
   const isViewable = brief?.status === 'ready' && brief?.has_content === true
 
   if (mode === 'approve') {
@@ -66,7 +69,19 @@ export function DrawerActions({ row, onApprove, onReject, onRevoke }: Props) {
           </button>
         </>
       )}
-      {isApproved && (
+      {isApproved && row.approved_asset_type === 'thought_leadership' && (
+        <>
+          <ConversationDraftStatus callInsightId={row.id} enabled={isApproved} />
+          <button
+            type="button"
+            onClick={onRevoke}
+            className="ml-auto rounded-md border-[0.5px] border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-700 transition-colors duration-150 hover:bg-slate-100"
+          >
+            Revoke
+          </button>
+        </>
+      )}
+      {isApproved && row.approved_asset_type !== 'thought_leadership' && (
         <>
           <button
             type="button"

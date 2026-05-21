@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { ApprovalPicker, ASSET_TYPES, type AssetType } from './ApprovalPicker'
 import { RejectInput } from './RejectInput'
 import { ConversationBriefStatus } from './ConversationBriefStatus'
+import { ConversationDraftStatus } from './ConversationDraftStatus'
 
 export type CardMode = 'collapsed' | 'approve' | 'reject'
 
@@ -14,11 +15,8 @@ const assetTypeLabel = (v: string | null) =>
   v == null ? null : ASSET_TYPES.find(a => a.value === v)?.label ?? v
 
 const formatDate = (iso: string) => {
-  try {
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric',
-    }).format(new Date(iso))
-  } catch { return iso }
+  try { return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(iso)) }
+  catch { return iso }
 }
 
 const formatDuration = (s: number | null) => {
@@ -103,8 +101,14 @@ export function InsightCard({
             )}
             {row.review_status === 'approved' && (
               <>
-                <Button variant="disabled" title="Coming in Phase 3b">View brief</Button>
-                <ConversationBriefStatus callInsightId={row.id} enabled={isApprovedTab} />
+                {row.approved_asset_type === 'thought_leadership' ? (
+                  <ConversationDraftStatus callInsightId={row.id} enabled={isApprovedTab} />
+                ) : (
+                  <>
+                    <Button variant="disabled" title="Coming in Phase 3b">View brief</Button>
+                    <ConversationBriefStatus callInsightId={row.id} enabled={isApprovedTab} />
+                  </>
+                )}
                 <Button variant="secondary" onClick={onRevoke}>Revoke</Button>
               </>
             )}

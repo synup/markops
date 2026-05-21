@@ -98,7 +98,7 @@ markops/
 - **Font**: System fonts (-apple-system, Inter)
 - **Component rule**: No component > 150 lines. UI separated from logic via hooks.
 
-## Database Tables (latest migration: 018_content_briefs)
+## Database Tables (latest migration: 020_content_drafts)
 
 | Table | Purpose | Written By |
 |-------|---------|-----------|
@@ -132,6 +132,9 @@ markops/
 | `ai_visibility_competitors` | Competitor names + variations text[] for case-insensitive matching (12 seeded) | Dashboard users |
 | `ai_visibility_config` | Key/value config (schedule_frequency) for persisting schedule settings | Dashboard + shell script |
 | `content_briefs` | Phase 3b: generated briefs for long-form asset types (blog_post / deep_article / use_case / collateral / tool). status pending → generating → ready/failed. NOT used for thought_leadership (Phase 3c content_drafts). | Approve API inserts pending row; Droplet (process_content_briefs.py) writes brief_content + flips to ready |
+| `content_brief_prompts` | Phase 3b.5: DB-backed prompts (base + 5 asset types). Worker reads via `get_prompt()` with per-invocation cache; UI editor at `/conversations/brief-prompts` writes here. Generic `set_updated_at()` trigger lives here too (created in migration 019). | Editor UI + system seed (migration 019) |
+| `content_drafts` | Phase 3c: short-form publish-ready drafts for `thought_leadership` asset type. author_voice CHECK in (sudy / roshan / niladri). status lifecycle mirrors content_briefs. | Approve API inserts pending row with `author_voice='niladri'` (v1 hardcode); Droplet (process_content_drafts.py) writes draft_content + flips to ready |
+| `content_draft_prompts` | Phase 3c: DB-backed draft prompts (base + 3 author voices). Mirrors `content_brief_prompts` exactly. Edited via `/conversations/draft-prompts`. | Editor UI + system seed (migration 020) |
 
 ## Approval Workflow
 
@@ -202,22 +205,57 @@ Phase 3b (brief generator for the 5 long-form asset types) shipped end-to-end on
 
 **Chevron affordance (bundled with 3b ship):** 20×20 inline SVG chevron-right at the right edge of each `InsightCard` bottom row, `text-slate-400` default → `text-slate-600` on `group-hover`. Lives outside the actions row's `stopPropagation` boundary so clicking it bubbles up to open the detail drawer. Visual cue that the card is interactive.
 
-### Phase 3b.5 — BACKLOG
+### Phase 3b.5 — SHIPPED (2026-05-20)
 
-- **Prompt editor in Agents tab.** Move `supabase/brief_prompts/*.md` from disk to a DB-backed table (modeled on `reddit_agent_configs` — version increments on save, enabled toggle). Add editor UI in the existing `/research` Agents tab so prompt iteration doesn't require SCP. Worker reads from DB instead of disk; cache-bust on save.
-- **In-app brief viewer.** Replace the currently-disabled "View brief" placeholder in `InsightCard` and `DrawerActions` with a viewer modal/drawer rendering `brief_content` as formatted markdown (separate code path from the file download).
+Phase 3b.5 (prompt editor + in-app brief viewer) shipped on 2026-05-20. Removes the SCP-to-droplet step from prompt iteration and adds an in-app surface for reading generated briefs.
 
-### Phase 3c — BACKLOG
+**Schema (migration 019):** `content_brief_prompts` — `id`, `prompt_name` UNIQUE CHECK in (`base`, `blog_post`, `deep_article`, `use_case`, `collateral`, `tool`), `prompt_content`, `updated_by`, `updated_at` (trigger-managed), `created_at`. Generic `set_updated_at()` PL/pgSQL function created in this migration (`CREATE OR REPLACE`) so future tables can reuse it — migration 020's two tables already do. Seeded with the 6 current prompt files (byte-fidelity verified pre-commit).
 
-- **Draft generator for `thought_leadership` asset type.** Separate pipeline from briefs:
-  - New `content_drafts` table (NOT `content_briefs`).
-  - 3 author voices: `sudy`, `roshan`, `niladri` (the existing `suggested_author` field on `call_insights` already carries this).
-  - Short LinkedIn-style drafts, target < 300 words.
-  - In-app view/edit only — no download flow (drafts are meant to be posted directly via LinkedIn, not delivered as files).
+**Worker switchover:** `supabase/process_content_briefs.py` now reads prompts from the table via a new `get_prompt(name)` helper backed by a module-level `_prompt_cache` (cached for one cron run; next run sees edits). Removed `load_base_prompt` / `load_asset_prompt` disk readers and the `BRIEF_PROMPTS_DIR` env var. Disk files in `supabase/brief_prompts/` retained as the canonical seed-source reference, no longer read at runtime. New `PromptNotFoundError` (terminal) vs `FetchError` (transient inline retry) classification.
+
+**API endpoints:**
+- `GET /api/brief-prompts` — returns all 6 prompts with `prompt_content` + server-computed `chars` + `updated_by` + `updated_at`. Used by the editor to load every row in one shot.
+- `PATCH /api/brief-prompts/[name]` — validates `name` against the allowed set, validates `prompt_content` (non-empty string ≤ 100,000 chars), updates the row. `updated_by` precedence: body override → admin session `user.email` → literal `'admin'`. `updated_at` left to the migration 019 trigger.
+
+**UI editor at `/conversations/brief-prompts`:** master-detail layout. Left pane (~30%): 6 prompts alphabetical, pretty-printed labels, relative `timeAgo` last-edited, cyan-500 left border + slate-100 bg on the selected row, amber dot when the row has unsaved edits. Right pane (~70%): monospace textarea (`min-h-500px`, `resize-y`), header with prompt name + last edited + char count, footer with amber "Unsaved changes" pill, Discard text button, cyan Save button (slate-200 when nothing to save), emerald "Saved {time}" pill that fades after 3s. `useBriefPrompts` hook holds a `pendingChanges` dict keyed by `prompt_name` so switching between prompts preserves edits. Page is a server component with `requireAdmin` via try/catch — non-admin users see an "Admin only" card instead of a 500.
+
+**Sidebar restructure (bundled):** Conversations parent row became a collapsible group with a chevron toggle (stopPropagation on the chevron so it doesn't navigate). Children render below with `pl-10` indent (corrected from the literal `pl-8` spec — parent's `px-3` + 16px icon column put parent text at ≈36px, so `pl-8` would have read as un-indented). Default expanded, no localStorage. Route moved from `/agents/brief-prompts` → `/conversations/brief-prompts` to match the new nesting; old URL 404s. Used dark-theme tokens for the child active state (`var(--brand)` left border, `var(--surface-2)` bg, `var(--text)` label) rather than the literal `cyan-500` / `slate-100` from the spec — the sidebar is dark-themed, light-mode strip on dark chrome would clash.
+
+**In-app brief viewer (bundled):** new `BriefViewerModal` (light-theme, `max-w-3xl`, `max-h-[85vh]`) renders `brief_content` via `react-markdown` (newly added dep, ~30 kB inline-imported into `/conversations`). Component map hand-styles `h1`/`h2`/`h3` per spec, `p` text-base + leading-relaxed, `ul`/`ol` with `pl-6` + space-y-1, `code` slate-100 bg, `strong` bold, links open in new tab. Three close paths: X button, Escape key, overlay click; modal body has `stopPropagation` so inside-clicks don't bubble.
+
+Status endpoint extended with `?content=true` to opt into `brief_content` in the payload — UI uses it for the modal; default behavior (status + metadata only, no content) unchanged for the polling case. `DrawerActions` View brief button now active when `brief?.status === 'ready' && has_content`; otherwise disabled with `'Brief not ready yet'` tooltip.
+
+### Phase 3c — SHIPPED (2026-05-21)
+
+Phase 3c (`thought_leadership` draft pipeline) shipped on 2026-05-21. Parallel to the Phase 3b brief pipeline, adapted for short-form publish-ready social posts (target 150-280 words).
+
+**Schema (migration 020):** Two new tables, both attaching `set_updated_at` from migration 019.
+- `content_drafts` — `id`, `call_insight_id` (FK CASCADE), `author_voice` CHECK in (`sudy`, `roshan`, `niladri`), `status` CHECK in (`pending`, `generating`, `ready`, `failed`), `draft_content`, `prompt_used`, `model_version`, `generation_metadata` jsonb, `error_message`, `retry_count`, `ready_at`, `created_at`, `updated_at`. Indexes on `status` and `call_insight_id`.
+- `content_draft_prompts` — mirrors `content_brief_prompts` exactly: `prompt_name` UNIQUE CHECK in (`base`, `sudy`, `roshan`, `niladri`), `prompt_content`, `updated_by`, timestamps. Seeded with the 4 prompt files (byte-fidelity verified pre-commit).
+
+**Worker (`supabase/process_content_drafts.py` on droplet):** adapted from `process_content_briefs.py` via str-replace + 5 targeted manual edits. `MAX_TOKENS=2048` (down from 8192 — drafts are short). `VALID_AUTHOR_VOICES = ('sudy', 'roshan', 'niladri')` replaces `VALID_ASSET_TYPES`. `build_user_message` takes `author_voice` as a parameter (separate from `context`) and uses an "Author voice (assigned)" block instead of the briefs' "Approved asset type" + "Suggested author" sections — the row's voice is authoritative. Closing instruction rewritten for short-form publish-ready output. Same retry semantics: 3 attempts with 0/30/60s inline backoff, MAX_PER_RUN=10, claim-via-conditional-PATCH, AuthError/RateLimitError abort+release, PromptNotFoundError terminal, FetchError/GenerationError inline retry.
+
+**Wrapper + cron:** `supabase/run_content_drafts.sh` mirrors `run_content_briefs.sh`. Cron `*/2 * * * * /opt/google-ads-auditor/run_content_drafts.sh`. Logs to `process_content_drafts_<YYYYMMDD>.log`.
+
+**Approve API routing:** `approved_asset_type === 'thought_leadership'` now triggers an INSERT into `content_drafts` (parallel to the existing brief INSERT branch). v1 hardcodes `author_voice = 'niladri'` via a new `DRAFT_DEFAULT_VOICE` constant. Upgrade path: `call_insights.suggested_author` already exists with the same `sudy/roshan/niladri` value set — wire it to a per-approval voice picker once all 3 voices are tuned. Idempotency check includes `'ready'` (unlike briefs which check only pending/generating) — a successfully generated draft should not get re-queued on re-approve. Same best-effort semantics: failures logged + swallowed, never break the user approve.
+
+**API endpoints:**
+- `GET /api/conversations/[id]/draft` — most-recent `content_drafts` row, optional `?content=true` for the editor.
+- `PATCH /api/conversations/[id]/draft` — updates `draft_content` on the most-recent `status='ready'` draft (SELECT-then-UPDATE since PostgREST can't `ORDER BY + LIMIT` on PATCH directly). 5,000-char cap (vs 100k on prompts). 404 if no ready draft. No `updated_by` tracking — column doesn't exist on `content_drafts`; future migration if multi-editor support comes later.
+
+**UI dispatcher:** `InsightCard` and `DrawerActions` both branch on `row.approved_asset_type === 'thought_leadership'`:
+- thought_leadership → `<ConversationDraftStatus>` (no View brief, no BriefViewerModal).
+- long-form → existing brief flow unchanged.
+
+`DrawerActions` also gates `useConversationBrief` so polling stops for thought_leadership rows.
+
+**`ConversationDraftStatus` + `DraftEditorModal`:** same four visual states as the brief equivalent — amber "Queued for draft" / "Generating draft…" pills, cyan "View draft ({voice})" button when ready (opens the modal), rose "Draft failed" pill with `error_message` in `title`. The status component owns its modal internally (drop-in). Modal is `max-w-2xl` (smaller than brief viewer), light-theme, header has voice label + words/chars stats + emerald "Saved {time}" pip (3s fade), font-mono textarea (`min-h-400px`, `resize-y`, spellcheck on), footer with Copy-to-clipboard (left) + Unsaved-changes pill + Discard + Save (right). Three close paths with `window.confirm` gate when unsaved changes exist. Refactored into 3 files (modal + footer + `useDraftEditor` hook) to fit the 150-line cap per file.
+
+**Draft prompts editor at `/conversations/draft-prompts`:** parallel implementation to brief prompts editor — `useDraftPrompts` hook, `DraftPromptsEditor` / `DraftPromptList` / `DraftPromptEditor` components. 4 prompts (Base/Niladri/Roshan/Sudy alphabetical). Sidebar gains a second child under Conversations, immediately below Brief prompts.
 
 ### Phase 3d — BACKLOG
 
-- **Compliance dashboard.** Scope undefined.
+- **Compliance dashboard.** Scope undefined. Needs a scoping conversation before implementation.
 
 ## Droplet Setup
 
@@ -226,13 +264,15 @@ Phase 3b (brief generator for the 5 long-form asset types) shipped end-to-end on
 - **Deployed scripts (Ads)**: `push_to_supabase.py`, `poll_audit_requests.py`, `push_negatives_to_ads.py`, `fetch_campaign_metrics.py`
 - **Deployed scripts (Reddit)**: `reddit_rss_poller.py`, `score_posts.py`, `generate_tool_specs.py`, `generate_promotions.py`, `generate_briefs.py` (in `/opt/reddit-research-tool/`)
 - **Deployed scripts (AI Visibility)**: `fetch_ai_visibility.py`, `run_ai_visibility.sh`
-- **Deployed scripts (Content briefs — Phase 3b)**: `process_content_briefs.py`, `run_content_briefs.sh`, plus `brief_prompts/` directory (base.md + 5 asset-type-specific .md files)
+- **Deployed scripts (Content briefs — Phase 3b)**: `process_content_briefs.py`, `run_content_briefs.sh`. (`brief_prompts/` directory still on droplet from Phase 3b ship — no longer read at runtime after Phase 3b.5; retained as seed-source reference only.)
+- **Deployed scripts (Content drafts — Phase 3c)**: `process_content_drafts.py`, `run_content_drafts.sh`. Reads from `content_draft_prompts` table via the same get_prompt + cache pattern. No disk prompt directory needed.
 - **Cron (Ads)**: `*/5 * * * *` polls for on-demand audits + scheduled audits + push-to-ads requests
 - **Cron (Ads daily 2am)**: `fetch_campaign_metrics.py --days 1` (sources .env, logs to /var/log/campaign_metrics.log)
 - **Cron (Reddit)**: 9 jobs — RSS poller (every 30min), score_posts (hourly), generate_tool_specs (every 2h), generate_promotions (every 4h), generate_briefs (every 4h), subreddit_suggester (daily), feed_enricher (every 6h), poll_score_requests (*/5), poll_spec_requests (*/5)
 - **Cron (AI Visibility)**: `0 6 * * *` — daily 6am check via `run_ai_visibility.sh`, only runs if enough time elapsed based on schedule_frequency from config table (default: 2x-week = every 3 days)
 - **Cron (AI Visibility pending)**: `*/2 * * * *` — `run_ai_visibility.sh --check-pending` polls for pending runs created by "Run Now" button, picks up and executes them
 - **Cron (Content briefs — Phase 3b)**: `*/2 * * * *` — `run_content_briefs.sh` polls `content_briefs WHERE status='pending'` (MAX_PER_RUN=10), claims via conditional PATCH, generates brief via Claude Sonnet 4.6, writes brief_content + flips to `ready`. Inline retry 3x with 0/30/60s backoffs. Logs to `/opt/google-ads-auditor/logs/process_content_briefs_<YYYYMMDD>.log`
+- **Cron (Content drafts — Phase 3c)**: `*/2 * * * *` — `run_content_drafts.sh` polls `content_drafts WHERE status='pending'` (MAX_PER_RUN=10), claims via conditional PATCH, generates draft via Claude Sonnet 4.6 with `max_tokens=2048`, writes draft_content + flips to `ready`. Same retry policy as briefs. Logs to `process_content_drafts_<YYYYMMDD>.log`
 - **All 6 Reddit scripts read agent configs from Supabase** (`reddit_agent_configs` table) for system prompts, model, temperature. tool_builder and brief_builder upgraded to Sonnet.
 - **Swap**: 1GB swap file added (droplet only has 1GB RAM)
 - **Env vars in `/opt/google-ads-auditor/.env`**: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_ADS_CUSTOMER_ID, GOOGLE_ADS_LOGIN_CUSTOMER_ID, OPENAI_API_KEY, ANTHROPIC_API_KEY, plus Google Ads OAuth credentials
@@ -324,12 +364,15 @@ Phase 3b (brief generator for the 5 long-form asset types) shipped end-to-end on
 - Gmail App Password on droplet is only 10 chars (needs 16) — but email is no longer needed
 - Legacy `Downloads/Adwords auditor/` path in repo should be restructured
 - Negative keywords are **campaign-level only** (no account-level shared lists in the current schema)
-- **Housekeeping pending (deferred from 2026-05-17)**:
+- **Housekeeping pending (accumulated across multi-session work)**:
   - Delete `master` branch local + remote (post-merge, master is no longer canonical)
   - Remove stray nested file `marketing-hq/Downloads/Adwords auditor/error_logger.py` (accidental commit from master's history)
   - Delete `/Users/niladri/package-lock.json` and `/Users/niladri/src/` mirror tree (stale dual-write artifacts)
-  - Investigate 2 npm audit vulns (1 moderate, 1 high) surfaced by the post-merge `npm install`
-  - Review `lucide-react@^1.7.0` pin — unusually old version, sanity check on a fresh checkout
+  - Investigate 2 npm audit vulns (1 moderate, 1 high) — still pending; check again next dep refresh
+  - Review `lucide-react@^1.7.0` pin — unusually old version; codebase uses inline SVGs throughout, may not actually import lucide-react anywhere
+  - **`src/components/features/agents/` is vestigial naming** — the route moved from `/agents/brief-prompts` to `/conversations/brief-prompts` during the Phase 3b.5 sidebar restructure, but the component folder kept the old name. Phase 3c added more files to this folder. Future cleanup: rename to `src/components/features/prompt-editors/`.
+  - **Stale "29 tables / 12 migrations" totals in older parts of this doc** — the Database Tables section header is now durable ("latest migration: 020_content_drafts") but older Current State / Completed sections still reference the stale totals. Not worth a full enumeration sweep; the per-section pointer is durable enough.
+  - macOS pending kernel update on droplet (host-level, unrelated to app code)
 
 ## Key Credentials & Infra
 
@@ -542,6 +585,33 @@ End-to-end brief generation pipeline shipped. See **Phase 3 Status → Phase 3b 
 13. Builds clean (`npx tsc --noEmit` + `npm run build`). /conversations route went from 8.36 kB → 9.20 kB across the phase's UI additions. All deploys via push-to-main → Vercel auto-deploy.
 
 **One known scope deferral:** the `DrawerActions` test plan called for "View brief disabled on pending drawer". The pre-existing DrawerActions only renders the brief buttons inside the approved branch (pending shows Reject + Approve only), so View brief disabled does NOT appear on pending drawers — this is pre-existing behavior, untouched.
+
+### 2026-05-20 — Phase 3b.5 Ship (Prompt Editor + In-App Brief Viewer)
+
+End-to-end editor surface for brief prompts + an in-app reader for the briefs themselves. See **Phase 3 Status → Phase 3b.5 — SHIPPED** above for the full architecture. Deliverables checklist:
+
+1. Migration 019 `content_brief_prompts` table + generic `set_updated_at()` PL/pgSQL function (CREATE OR REPLACE so future migrations can reuse). Seeded with the 6 brief prompt files, byte-fidelity verified pre-commit.
+2. `process_content_briefs.py` patched to read from DB via new `get_prompt(name)` helper + module-level `_prompt_cache`. Disk files in `supabase/brief_prompts/` retained as seed-source reference only; no longer read at runtime. New `PromptNotFoundError` (terminal) vs `FetchError` (transient inline retry) error classification.
+3. GET /api/brief-prompts (list with content) + PATCH /api/brief-prompts/[name] (validate name + content, set updated_by from session email or body override).
+4. UI editor at `/conversations/brief-prompts`: master-detail (~30%/~70%), `useBriefPrompts` hook with per-prompt `pendingChanges` dict (switching prompts preserves edits), amber dot in list for dirty rows, cyan Save / slate-200 disabled, emerald "Saved {time}" 3s pip. Page is a server component with `requireAdmin` via try/catch — non-admin sees a friendly "Admin only" card.
+5. Sidebar restructure: Conversations parent becomes a collapsible group, chevron toggle with `stopPropagation`, children render with `pl-10` indent (corrected from spec's `pl-8` — parent text-start is at ≈36px so `pl-8` would have under-indented). Default expanded, no localStorage. Route moved from `/agents/brief-prompts` → `/conversations/brief-prompts`. Child active state uses dark-theme tokens (`var(--brand)` border, `var(--surface-2)` bg, `var(--text)` label) — light cyan-500/slate-100 from spec would clash on the dark sidebar; spec's wording was right for the destination page palette, wrong for the sidebar chrome.
+6. In-app brief viewer: `BriefViewerModal` (light-theme, `max-w-3xl`) renders markdown via `react-markdown` (new dep, ~30 kB). Hand-styled `components` map (no `@tailwindcss/typography` plugin). Three close paths (X / Esc / overlay), `stopPropagation` on modal body. Status endpoint extended with `?content=true` — default polling shape unchanged. View brief button on `DrawerActions` now active when ready + has_content; tooltip swap when not ready.
+7. Builds clean throughout. `/conversations` bundle 9.20 → 43.9 kB (react-markdown weight). `/conversations/brief-prompts` at 2.86 kB.
+
+### 2026-05-21 — Phase 3c Ship (Draft Generator + Editor)
+
+`thought_leadership` draft pipeline shipped end-to-end. Parallel architecture to the brief pipeline, adapted for short-form publish-ready social posts (150-280 words target). See **Phase 3 Status → Phase 3c — SHIPPED** above for the full architecture. Deliverables checklist:
+
+1. Migration 020 `content_drafts` + `content_draft_prompts` tables. Reuses `set_updated_at()` from migration 019. Seeded with 4 prompt files (base + 3 author voices), byte-fidelity verified pre-commit.
+2. `supabase/process_content_drafts.py` adapted from briefs worker via str.replace + 5 targeted manual edits (`build_user_message` rewrite, dropped unused `approved_asset_type`/`suggested_asset_type` from select clause, `build_system_prompt` local var rename, asset-type validation moved to top of `process_one_draft`, module docstring updates). `MAX_TOKENS=2048`. Same retry semantics, same MAX_PER_RUN=10.
+3. `supabase/run_content_drafts.sh` wrapper, cron `*/2 * * * *`. SCP'd to droplet alongside the briefs worker.
+4. Approve API gains parallel draft branch: `assetType === 'thought_leadership'` → INSERT into `content_drafts` with `author_voice='niladri'` (hardcoded v1; `DRAFT_DEFAULT_VOICE` constant + comment noting `call_insights.suggested_author` as the upgrade path). Idempotency check includes `'ready'` status (unlike briefs which only check pending/generating).
+5. GET /api/conversations/[id]/draft + PATCH (5,000-char cap, no `updated_by`). PATCH does SELECT-then-UPDATE because PostgREST can't ORDER+LIMIT a PATCH.
+6. `useConversationDraft` hook (5s poll, AbortController cleanup, refetch). `useDraftEditor` hook (pending/saved state, save, discard) extracted so `DraftEditorModal` stays under cap. `ConversationDraftStatus` (parallel to brief status) owns its `DraftEditorModal` internally — drop-in component.
+7. Dispatcher logic in `InsightCard` + `DrawerActions`: branch on `row.approved_asset_type === 'thought_leadership'` → draft components, else briefs flow unchanged. `DrawerActions` also gates `useConversationBrief` to skip polling on thought_leadership rows.
+8. Draft prompts editor at `/conversations/draft-prompts`: parallel to brief prompts editor. `useDraftPrompts` + `DraftPromptsEditor` + list/editor subcomponents. Generated via Python str.replace + 5 manual patches (`VALID_PROMPT_NAMES` set, LABELS dicts in two files, page description "drafts are short-form" not "long-form", phase + migration refs).
+9. Sidebar Conversations group now has 2 children: Brief prompts + Draft prompts. Chevron + indent infrastructure from Phase 3b.5 handles both with zero changes.
+10. Builds clean. Worker matches brief worker's structural size (~720 lines) within the soft cap precedent.
 
 ## Rules for Future Sessions
 1. **Components < 150 lines** — split if exceeding

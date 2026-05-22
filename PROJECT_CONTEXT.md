@@ -253,9 +253,22 @@ Phase 3c (`thought_leadership` draft pipeline) shipped on 2026-05-21. Parallel t
 
 **Draft prompts editor at `/conversations/draft-prompts`:** parallel implementation to brief prompts editor — `useDraftPrompts` hook, `DraftPromptsEditor` / `DraftPromptList` / `DraftPromptEditor` components. 4 prompts (Base/Niladri/Roshan/Sudy alphabetical). Sidebar gains a second child under Conversations, immediately below Brief prompts.
 
-### Phase 3d — BACKLOG
+### Phase 3c follow-up — SHIPPED (2026-05-22)
 
-- **Compliance dashboard.** Scope undefined. Needs a scoping conversation before implementation.
+Voice picker on approve for `thought_leadership`. Replaces the v1 hardcoded `author_voice='niladri'` from Phase 3c with a per-approval pick. Commit `732b2b2`.
+
+**Picker (`src/components/features/conversations/ApprovalPicker.tsx`):** new `AUTHOR_VOICES` const + `AuthorVoice` type + `isValidVoice` helper. New `suggestedAuthor: string | null` prop. Internal `voice` state defaults to `suggestedAuthor` (validated against the 3 allowed voices) else `'niladri'`. An "Author voice" sub-section with three chips (Sudy / Roshan / Niladri, same chip styling as asset-type) renders only when `selected === 'thought_leadership'`, indented under a `border-l` divider. `useEffect` resets voice to the suggested-author default whenever the asset type moves away from thought_leadership — re-selecting starts clean rather than from a stale prior pick. `onConfirm(assetType, voice?)` — voice is only passed when thought_leadership is selected; long-form approves are unchanged.
+
+**Backend (`src/app/api/conversations/[id]/approve/route.ts`):** new `VALID_AUTHOR_VOICES = new Set(['sudy', 'roshan', 'niladri'])`. `DRAFT_DEFAULT_VOICE = 'niladri'` is now a **fallback** rather than a hardcode. Body shape extended to `{ approved_asset_type, author_voice? }`. Resolution: valid `author_voice` → use it; missing → silent fallback; invalid → `console.warn` + fallback. **No 400 on missing/invalid `author_voice`** — backward compatible for any future API caller. The resolved `authorVoice` is used in both the idempotency `.eq('author_voice', ...)` lookup and the `content_drafts` INSERT.
+
+**Wiring (6 files):** `row.suggested_author` plumbed through `InsightCard` + `DrawerActions` (pass to `ApprovalPicker`), `onApprove` signature widened from `(assetType) => void` to `(assetType, authorVoice?) => void` through `DetailDrawer` + `ConversationsView` + `useConversationActions.handleApprove` + `useApprove`. The list endpoint `GET /api/conversations` already SELECTed `suggested_author` (Phase 3a residual) — no GET endpoint change needed. `useApprove` includes `author_voice` in the JSON body only when defined, so existing callers that don't send it stay backward-compat.
+
+**Tested end-to-end:** Sudy voice (default-match path — `suggested_author='sudy'` on the insight, user accepts default) and Roshan voice (override path — `suggested_author='niladri'`, user changes to Roshan) both correctly recorded in `content_drafts` with the right `author_voice` and generated distinct drafts via the existing Phase 3c worker.
+
+### Phase 3d — DROPPED
+
+- Originally scoped as compliance dashboard / distribution outcome tracking.
+- Decision: not shipping. Distribution outcome tracking moved to future scope per Niladri's call.
 
 ## Droplet Setup
 
@@ -372,6 +385,9 @@ Phase 3c (`thought_leadership` draft pipeline) shipped on 2026-05-21. Parallel t
   - Review `lucide-react@^1.7.0` pin — unusually old version; codebase uses inline SVGs throughout, may not actually import lucide-react anywhere
   - **`src/components/features/agents/` is vestigial naming** — the route moved from `/agents/brief-prompts` to `/conversations/brief-prompts` during the Phase 3b.5 sidebar restructure, but the component folder kept the old name. Phase 3c added more files to this folder. Future cleanup: rename to `src/components/features/prompt-editors/`.
   - **Stale "29 tables / 12 migrations" totals in older parts of this doc** — the Database Tables section header is now durable ("latest migration: 020_content_drafts") but older Current State / Completed sections still reference the stale totals. Not worth a full enumeration sweep; the per-section pointer is durable enough.
+  - **Re-approve overwrites `approved_asset_type` without cleaning up the prior content_briefs/content_drafts row** — discovered during voice picker testing when re-approving the Spearheadsalesmarketing insight (previously approved as `blog_post`) with `thought_leadership`. The approve API doesn't prevent changing asset_type on re-approve, so the prior `content_briefs` row gets orphaned from the new `approved_asset_type`. UX/data integrity gap — fix candidates: block asset_type change on re-approve, or delete the stale brief/draft row when switching.
+  - **`call_insight_id` not surfaced in the UI** — no way to identify a conversation by ID for debug/ops work. Small fix: show first 8 chars of UUID on each `InsightCard`, or a "Copy ID" button in `DetailDrawer`.
+  - **Untracked `supabase/migrations/015_add_all_conversions.sql`** — pre-existing inconsistency from Phase 3b campaign dashboard work. Migration was applied to the DB but never committed; related `fetch_campaign_metrics.py` changes still pending SCP + 60-day backfill. Pick up in a fresh Campaign Dashboard session.
   - macOS pending kernel update on droplet (host-level, unrelated to app code)
 
 ## Key Credentials & Infra

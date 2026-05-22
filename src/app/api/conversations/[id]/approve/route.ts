@@ -12,11 +12,13 @@ const LONG_FORM_ASSET_TYPES = new Set([
   'blog_post', 'deep_article', 'use_case', 'collateral', 'tool',
 ])
 
-// v1 defaults all thought_leadership drafts to Niladri's voice. Per-approval
-// voice choice is a future enhancement. Niladri can edit the generated draft
-// in the in-app editor regardless. (call_insights.suggested_author exists and
-// also constrains to sudy/roshan/niladri — keep that as the upgrade path
-// when we surface a per-approval picker.)
+// Allowed author voices for thought_leadership drafts. Matches the
+// content_drafts.author_voice CHECK constraint and content_draft_prompts seed.
+const VALID_AUTHOR_VOICES = new Set(['sudy', 'roshan', 'niladri'])
+
+// Fallback voice when the client doesn't provide author_voice or sends an
+// invalid value. Soft-fallback (not a 400) so older callers / API consumers
+// that pre-date the voice picker keep working.
 const DRAFT_DEFAULT_VOICE = 'niladri'
 
 export async function PATCH(
@@ -31,7 +33,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'missing id' }, { status: 400 })
     }
 
-    let body: { approved_asset_type?: unknown }
+    let body: { approved_asset_type?: unknown; author_voice?: unknown }
     try {
       body = await request.json()
     } catch {
@@ -43,6 +45,18 @@ export async function PATCH(
       return NextResponse.json(
         { error: 'invalid approved_asset_type', allowed: Array.from(VALID_ASSET_TYPES) },
         { status: 400 },
+      )
+    }
+
+    // Resolve author_voice for the thought_leadership branch. Missing or
+    // invalid values fall back to DRAFT_DEFAULT_VOICE rather than 400 — the
+    // approve action itself is independent of voice.
+    let authorVoice = DRAFT_DEFAULT_VOICE
+    if (typeof body.author_voice === 'string' && VALID_AUTHOR_VOICES.has(body.author_voice)) {
+      authorVoice = body.author_voice
+    } else if (body.author_voice !== undefined) {
+      console.warn(
+        `approve: invalid author_voice ${JSON.stringify(body.author_voice)} — falling back to ${DRAFT_DEFAULT_VOICE}`,
       )
     }
 
@@ -110,7 +124,7 @@ export async function PATCH(
           .from('content_drafts')
           .select('id')
           .eq('call_insight_id', data.id)
-          .eq('author_voice', DRAFT_DEFAULT_VOICE)
+          .eq('author_voice', authorVoice)
           .in('status', ['pending', 'generating', 'ready'])
           .limit(1)
           .maybeSingle()
@@ -122,7 +136,7 @@ export async function PATCH(
             .from('content_drafts')
             .insert({
               call_insight_id: data.id,
-              author_voice: DRAFT_DEFAULT_VOICE,
+              author_voice: authorVoice,
               status: 'pending',
             })
           if (insertErr) {

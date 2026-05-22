@@ -5,6 +5,7 @@ import type { useUrlState } from '@/hooks/useUrlState'
 import type { LastApproved } from '@/hooks/useConversationActions'
 import { ConversationsTabBar } from './ConversationsTabBar'
 import { ConversationsFilters } from './ConversationsFilters'
+import { type AuthorVoice } from './ApprovalPicker'
 import { InsightCard, type CardMode } from './InsightCard'
 import { DetailDrawer } from './DetailDrawer'
 import { JustApprovedBanner } from './JustApprovedBanner'
@@ -26,7 +27,7 @@ type Props = {
   onCardModeChange: (id: string, mode: CardMode) => void
   exitingIds: Set<string>
   onOpenDrawer: (id: string) => void
-  onApprove: (id: string, assetType: SuggestedAssetType) => void
+  onApprove: (id: string, assetType: SuggestedAssetType, authorVoice?: AuthorVoice) => void
   onReject: (id: string, reason: string | null) => void
   onRevoke: (id: string) => void
   drawerRow: ConversationRow | null
@@ -89,7 +90,7 @@ export function ConversationsView(p: Props) {
                   isApprovedTab={p.url.tab === 'approved'}
                   onModeChange={m => p.onCardModeChange(row.id, m)}
                   onOpenDrawer={p.onOpenDrawer}
-                  onApprove={at => p.onApprove(row.id, at)}
+                  onApprove={(at, voice) => p.onApprove(row.id, at, voice)}
                   onReject={r => p.onReject(row.id, r)}
                   onRevoke={() => p.onRevoke(row.id)}
                 />
@@ -104,7 +105,7 @@ export function ConversationsView(p: Props) {
       <DetailDrawer
         row={p.drawerRow}
         onClose={p.onCloseDrawer}
-        onApprove={at => { if (p.drawerRow) p.onApprove(p.drawerRow.id, at) }}
+        onApprove={(at, voice) => { if (p.drawerRow) p.onApprove(p.drawerRow.id, at, voice) }}
         onReject={r => { if (p.drawerRow) p.onReject(p.drawerRow.id, r) }}
         onRevoke={() => { if (p.drawerRow) p.onRevoke(p.drawerRow.id) }}
       />

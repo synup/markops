@@ -4,7 +4,7 @@ import { type ConversationRow } from '@/types/conversation'
 import { ScoreBadge } from '@/components/ui/ScoreBadge'
 import { Chip } from '@/components/ui/Chip'
 import { Button } from '@/components/ui/Button'
-import { ApprovalPicker, ASSET_TYPES, type AssetType } from './ApprovalPicker'
+import { ApprovalPicker, ASSET_TYPES, type AssetType, type AuthorVoice } from './ApprovalPicker'
 import { RejectInput } from './RejectInput'
 import { ConversationBriefStatus } from './ConversationBriefStatus'
 import { ConversationDraftStatus } from './ConversationDraftStatus'
@@ -33,7 +33,7 @@ type Props = {
   isApprovedTab?: boolean
   onModeChange?: (mode: CardMode) => void
   onOpenDrawer: (id: string) => void
-  onApprove: (assetType: AssetType) => void
+  onApprove: (assetType: AssetType, authorVoice?: AuthorVoice) => void
   onReject: (reason: string | null) => void
   onRevoke: () => void
 }
@@ -130,6 +130,7 @@ export function InsightCard({
         <div onClick={stop}>
           <ApprovalPicker
             suggested={row.suggested_asset_type as AssetType | null}
+            suggestedAuthor={row.suggested_author}
             onConfirm={onApprove}
             onCancel={() => onModeChange?.('collapsed')}
           />

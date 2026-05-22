@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 export const ASSET_TYPES = [
   { value: 'blog_post',          label: 'Blog post' },
@@ -13,14 +13,44 @@ export const ASSET_TYPES = [
 
 export type AssetType = (typeof ASSET_TYPES)[number]['value']
 
+export const AUTHOR_VOICES = [
+  { value: 'sudy',    label: 'Sudy' },
+  { value: 'roshan',  label: 'Roshan' },
+  { value: 'niladri', label: 'Niladri' },
+] as const
+
+export type AuthorVoice = (typeof AUTHOR_VOICES)[number]['value']
+
+const DEFAULT_VOICE: AuthorVoice = 'niladri'
+const isValidVoice = (v: string | null | undefined): v is AuthorVoice =>
+  v != null && AUTHOR_VOICES.some(av => av.value === v)
+
 type Props = {
   suggested: AssetType | null
-  onConfirm: (assetType: AssetType) => void
+  suggestedAuthor: string | null
+  onConfirm: (assetType: AssetType, authorVoice?: AuthorVoice) => void
   onCancel: () => void
 }
 
-export function ApprovalPicker({ suggested, onConfirm, onCancel }: Props) {
+export function ApprovalPicker({ suggested, suggestedAuthor, onConfirm, onCancel }: Props) {
   const [selected, setSelected] = useState<AssetType>(suggested ?? 'blog_post')
+  const [voice, setVoice] = useState<AuthorVoice>(
+    isValidVoice(suggestedAuthor) ? suggestedAuthor : DEFAULT_VOICE,
+  )
+
+  const isThoughtLeadership = selected === 'thought_leadership'
+
+  // Reset voice to the suggested-author default whenever the asset type
+  // moves away from thought_leadership — so re-selecting it starts clean
+  // from the insight's suggested_author rather than a stale prior pick.
+  useEffect(() => {
+    if (!isThoughtLeadership) {
+      setVoice(isValidVoice(suggestedAuthor) ? suggestedAuthor : DEFAULT_VOICE)
+    }
+  }, [isThoughtLeadership, suggestedAuthor])
+
+  const handleConfirm = () =>
+    onConfirm(selected, isThoughtLeadership ? voice : undefined)
 
   return (
     <div className="mt-4 rounded-lg border-[0.5px] border-slate-200 bg-slate-50 p-4">
@@ -46,6 +76,30 @@ export function ApprovalPicker({ suggested, onConfirm, onCancel }: Props) {
           )
         })}
       </div>
+      {isThoughtLeadership && (
+        <div className="mb-4 ml-4 border-l-[0.5px] border-slate-200 pl-4">
+          <div className="mb-2 text-[12px] text-slate-500">Author voice</div>
+          <div className="flex flex-wrap gap-2">
+            {AUTHOR_VOICES.map(av => {
+              const isSel = voice === av.value
+              return (
+                <button
+                  key={av.value}
+                  type="button"
+                  onClick={() => setVoice(av.value)}
+                  className={`rounded-full border-[0.5px] px-3 py-1 text-[12px] transition-colors duration-150 ${
+                    isSel
+                      ? 'border-cyan-500 bg-cyan-500 text-white'
+                      : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  {av.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
       <div className="flex justify-end gap-2">
         <button
           type="button"
@@ -56,7 +110,7 @@ export function ApprovalPicker({ suggested, onConfirm, onCancel }: Props) {
         </button>
         <button
           type="button"
-          onClick={() => onConfirm(selected)}
+          onClick={handleConfirm}
           className="rounded-md bg-cyan-500 px-3 py-1.5 text-[13px] text-white transition-colors duration-150 hover:bg-cyan-600"
         >
           Confirm

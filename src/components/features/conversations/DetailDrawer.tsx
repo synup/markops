@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { type ConversationRow } from '@/types/conversation'
-import { type AssetType } from './ApprovalPicker'
+import { type AssetType, type AuthorVoice } from './ApprovalPicker'
 import { Chip } from '@/components/ui/Chip'
 import { DrawerHeader } from './DrawerHeader'
 import { DrawerVerbatim } from './DrawerVerbatim'
@@ -22,7 +22,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 type Props = {
   row: ConversationRow | null
   onClose: () => void
-  onApprove: (assetType: AssetType) => void
+  onApprove: (assetType: AssetType, authorVoice?: AuthorVoice) => void
   onReject: (reason: string | null) => void
   onRevoke: () => void
 }

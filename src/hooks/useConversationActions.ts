@@ -6,6 +6,7 @@ import { useReject } from './useReject'
 import { useRevoke } from './useRevoke'
 import { useToast } from './useToast'
 import type { ConversationRow, ReviewStatus, SuggestedAssetType } from '@/types/conversation'
+import type { AuthorVoice } from '@/components/features/conversations/ApprovalPicker'
 
 const EXIT_MS = 250
 const APPROVED_BANNER_MS = 30000
@@ -49,11 +50,15 @@ export function useConversationActions(conv: ConvOps) {
     }, EXIT_MS)
   }, [])
 
-  const handleApprove = useCallback(async (id: string, assetType: SuggestedAssetType) => {
+  const handleApprove = useCallback(async (
+    id: string,
+    assetType: SuggestedAssetType,
+    authorVoice?: AuthorVoice,
+  ) => {
     const row = conv.rows.find(r => r.id === id)
     if (!row) return
     try {
-      await approve(id, assetType)
+      await approve(id, assetType, authorVoice)
       setLastApproved({
         rowSnapshot: { ...row, review_status: 'approved', approved_asset_type: assetType },
         assetType,

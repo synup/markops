@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { type ConversationRow } from '@/types/conversation'
 import { useConversationBrief } from '@/hooks/useConversationBrief'
-import { ApprovalPicker, type AssetType } from './ApprovalPicker'
+import { ApprovalPicker, type AssetType, type AuthorVoice } from './ApprovalPicker'
 import { RejectInput } from './RejectInput'
 import { ConversationBriefStatus } from './ConversationBriefStatus'
 import { BriefViewerModal } from './BriefViewerModal'
@@ -11,7 +11,7 @@ import { ConversationDraftStatus } from './ConversationDraftStatus'
 
 type Props = {
   row: ConversationRow
-  onApprove: (assetType: AssetType) => void
+  onApprove: (assetType: AssetType, authorVoice?: AuthorVoice) => void
   onReject: (reason: string | null) => void
   onRevoke: () => void
 }
@@ -35,6 +35,7 @@ export function DrawerActions({ row, onApprove, onReject, onRevoke }: Props) {
     return (
       <ApprovalPicker
         suggested={row.suggested_asset_type as AssetType | null}
+        suggestedAuthor={row.suggested_author}
         onConfirm={onApprove}
         onCancel={() => setMode('collapsed')}
       />

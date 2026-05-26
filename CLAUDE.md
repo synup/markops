@@ -4,8 +4,6 @@
 - GitHub: https://github.com/synup/markops
 - Local: `/Users/niladri/Downloads/Adwords auditor/marketing-hq/`
 - Deploy: marketing-hq-nine.vercel.app (Vercel, auto-deploy from main)
-- **CRITICAL**: Vercel builds from repo root `src/`, not from `Downloads/Adwords auditor/marketing-hq/src/`
-  Changes must be applied to BOTH paths if editing locally.
 
 ## Docs & Issues
 - Issues dir: `/Users/niladri/Downloads/Claude Issues/`

@@ -15,13 +15,7 @@ export function GenerateButton({ type }: GenerateButtonProps) {
     <button
       onClick={request}
       disabled={pending}
-      className="btn-research rounded px-3 py-1 text-xs font-medium"
-      style={{
-        background: pending ? 'var(--surface-2)' : 'var(--surface-2)',
-        color: pending ? 'var(--text-dim)' : 'var(--brand)',
-        border: `1px solid ${pending ? 'var(--border)' : 'var(--brand-border)'}`,
-        cursor: pending ? 'not-allowed' : 'pointer',
-      }}
+      className="rounded-md border-[0.5px] border-cyan-200 bg-white px-3 py-1 text-[12px] font-medium text-cyan-700 transition-colors duration-150 hover:bg-cyan-50 disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {pending ? loadingLabel : label}
     </button>

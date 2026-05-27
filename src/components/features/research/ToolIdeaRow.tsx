@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { ToolIdea } from '@/hooks/useRedditResearch'
-import { ScoreBar } from './ScoreBar'
+import { ResearchScoreBar } from './ResearchScoreBar'
 import { PostPreview } from './PostPreview'
 import { ReclassifyButton } from './ReclassifyButton'
 import { ToolSpecViewer, downloadSpecMarkdown } from './ToolSpecViewer'
@@ -20,40 +20,40 @@ export function ToolIdeaRow({ idea, onApprove, onReject, onReclassify }: ToolIde
   const isActed = !!status
   const hasSpec = status === 'review_ready' && idea.latest_action?.notes
 
+  const borderClass = status === 'approved'
+    ? 'border-emerald-300'
+    : status === 'rejected'
+      ? 'border-rose-300'
+      : status === 'review_ready'
+        ? 'border-cyan-300'
+        : 'border-slate-200'
+
   return (
-    <div
-      className="rounded-lg p-4"
-      style={{
-        background: 'var(--surface)',
-        border: `1px solid ${status === 'approved' ? 'var(--green)' : status === 'rejected' ? 'var(--red)' : status === 'review_ready' ? 'var(--brand)' : 'var(--border)'}`,
-        opacity: isActed ? 0.7 : 1,
-      }}
-    >
+    <div className={`rounded-lg border-[0.5px] bg-white p-4 transition-colors duration-200 ${borderClass} ${isActed ? 'opacity-75' : ''}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <a
             href={idea.post.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-base font-semibold hover:underline"
-            style={{ color: '#E5E7EB' }}
+            className="truncate text-[15px] font-medium text-slate-900 transition-colors duration-150 hover:text-cyan-700"
           >
             {idea.post.title}
           </a>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-            <span className="rounded px-1.5 py-0.5 text-[10px] font-medium" style={{ background: 'var(--surface-3)' }}>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-slate-500">
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-700">
               r/{idea.post.subreddit}
             </span>
             <span>{idea.post.upvotes} pts</span>
-            <span style={{ color: 'var(--text-dim)' }}>·</span>
+            <span className="text-slate-400">·</span>
             <span>{idea.post.num_comments} comments</span>
             {idea.tool_type && (
-              <span className="rounded px-1.5 py-0.5 text-[10px] font-medium" style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}>
+              <span className="rounded bg-cyan-50 px-1.5 py-0.5 text-[11px] font-medium text-cyan-700">
                 {idea.tool_type}
               </span>
             )}
             {idea.build_complexity && (
-              <span className="rounded px-1.5 py-0.5 text-[10px] font-medium" style={{ background: 'var(--yellow-muted)', color: 'var(--yellow)' }}>
+              <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">
                 {idea.build_complexity}
               </span>
             )}
@@ -65,31 +65,30 @@ export function ToolIdeaRow({ idea, onApprove, onReject, onReclassify }: ToolIde
             <div className="flex flex-col items-end gap-1.5">
               {hasSpec ? (
                 <>
-                  <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}>Spec Ready</span>
-                  <button onClick={() => setShowSpec(true)} className="btn-research rounded px-2.5 py-1.5 text-xs font-semibold" style={{ background: 'var(--brand)', color: '#fff' }}>View Spec</button>
+                  <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-[11px] font-medium text-cyan-700">Spec Ready</span>
+                  <button onClick={() => setShowSpec(true)} className="rounded-md bg-cyan-500 px-3 py-1.5 text-[12px] font-medium text-white transition-colors duration-150 hover:bg-cyan-600">View Spec</button>
                   <button
                     onClick={() => downloadSpecMarkdown(idea.latest_action!.notes!)}
-                    className="btn-research rounded px-2 py-1 text-[10px] font-medium"
-                    style={{ background: 'var(--surface-2)', color: 'var(--brand)', border: '1px solid var(--brand-border)' }}
+                    className="rounded-md border-[0.5px] border-slate-300 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition-colors duration-150 hover:bg-slate-50"
                   >Download Spec</button>
                 </>
               ) : status === 'approved' ? (
-                <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--green-muted)', color: 'var(--green)' }}>Awaiting Spec</span>
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">Awaiting Spec</span>
               ) : status === 'rejected' ? (
-                <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--red-muted)', color: 'var(--red)' }}>Rejected</span>
+                <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700">Rejected</span>
               ) : status === 'in_progress' ? (
-                <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--yellow-muted)', color: 'var(--yellow)' }}>In Progress</span>
+                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">In Progress</span>
               ) : status === 'deployed' ? (
-                <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--green-muted)', color: 'var(--green)' }}>Deployed</span>
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">Deployed</span>
               ) : (
-                <span className="rounded px-2 py-1 text-xs font-medium" style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}>{status}</span>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">{status}</span>
               )}
             </div>
           ) : (
             <>
               <div className="flex items-center gap-1.5">
-                <button onClick={() => onApprove(idea.post_id)} className="btn-research rounded px-2.5 py-1 text-xs font-medium" style={{ background: 'var(--green-muted)', color: 'var(--green)' }}>Approve</button>
-                <button onClick={() => onReject(idea.post_id)} className="btn-research rounded px-2.5 py-1 text-xs font-medium" style={{ background: 'var(--red-muted)', color: 'var(--red)' }}>Reject</button>
+                <button onClick={() => onApprove(idea.post_id)} className="rounded-md bg-emerald-50 px-2.5 py-1 text-[12px] font-medium text-emerald-700 transition-colors duration-150 hover:bg-emerald-100">Approve</button>
+                <button onClick={() => onReject(idea.post_id)} className="rounded-md bg-rose-50 px-2.5 py-1 text-[12px] font-medium text-rose-700 transition-colors duration-150 hover:bg-rose-100">Reject</button>
               </div>
               <ReclassifyButton targetTrack="Content" onConfirm={() => onReclassify(idea.post_id, idea.id)} />
             </>
@@ -98,16 +97,16 @@ export function ToolIdeaRow({ idea, onApprove, onReject, onReclassify }: ToolIde
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-3 md:grid-cols-6">
-        <ScoreBar label="Relevance" value={idea.relevance_score} max={10} />
-        <ScoreBar label="Intent" value={idea.intent_score} max={10} />
-        <ScoreBar label="Engagement" value={idea.engagement_score} max={10} />
-        <ScoreBar label="Recency" value={idea.recency_score} max={10} />
-        <ScoreBar label="Comp. Gap" value={idea.competitive_gap_score} max={10} />
-        <ScoreBar label="Composite" value={idea.composite_score} max={100} color="var(--brand)" />
+        <ResearchScoreBar label="Relevance" value={idea.relevance_score} max={10} />
+        <ResearchScoreBar label="Intent" value={idea.intent_score} max={10} />
+        <ResearchScoreBar label="Engagement" value={idea.engagement_score} max={10} />
+        <ResearchScoreBar label="Recency" value={idea.recency_score} max={10} />
+        <ResearchScoreBar label="Comp. Gap" value={idea.competitive_gap_score} max={10} />
+        <ResearchScoreBar label="Composite" value={idea.composite_score} max={100} color="cyan" />
       </div>
 
       {idea.action_rationale && (
-        <p className="mt-2 text-[13px] italic" style={{ color: '#C4B5FD' }}>{idea.action_rationale}</p>
+        <p className="mt-2 text-[13px] italic text-slate-600">{idea.action_rationale}</p>
       )}
       {showSpec && hasSpec && (
         <ToolSpecViewer notes={idea.latest_action!.notes!} onClose={() => setShowSpec(false)} />

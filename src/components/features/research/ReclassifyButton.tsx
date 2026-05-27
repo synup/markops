@@ -12,21 +12,17 @@ export function ReclassifyButton({ targetTrack, onConfirm }: ReclassifyButtonPro
 
   if (confirming) {
     return (
-      <div className="flex items-center gap-1">
-        <span className="text-[10px]" style={{ color: 'var(--text-dim)' }}>
-          Move to {targetTrack}?
-        </span>
+      <div className="flex items-center gap-1.5">
+        <span className="text-[11px] text-slate-500">Move to {targetTrack}?</span>
         <button
           onClick={() => { onConfirm(); setConfirming(false) }}
-          className="btn-research rounded px-2 py-0.5 text-[10px] font-medium"
-          style={{ background: 'var(--green-muted)', color: 'var(--green)' }}
+          className="rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 transition-colors duration-150 hover:bg-emerald-100"
         >
           Confirm
         </button>
         <button
           onClick={() => setConfirming(false)}
-          className="btn-research rounded px-2 py-0.5 text-[10px] font-medium"
-          style={{ color: 'var(--text-dim)' }}
+          className="rounded-md px-2 py-0.5 text-[11px] font-medium text-slate-500 transition-colors duration-150 hover:text-slate-700"
         >
           Cancel
         </button>
@@ -37,10 +33,7 @@ export function ReclassifyButton({ targetTrack, onConfirm }: ReclassifyButtonPro
   return (
     <button
       onClick={() => setConfirming(true)}
-      className="btn-research rounded px-2 py-1 text-[10px] font-medium"
-      style={{ color: '#9CA3AF', border: '1px solid #4B5563' }}
-      onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'var(--brand)' }}
-      onMouseLeave={e => { e.currentTarget.style.color = '#9CA3AF'; e.currentTarget.style.borderColor = '#4B5563' }}
+      className="rounded-md border-[0.5px] border-slate-300 px-2 py-1 text-[11px] font-medium text-slate-600 transition-colors duration-150 hover:border-cyan-500 hover:text-cyan-700"
       title={`Move this to ${targetTrack} Ideas`}
     >
       → {targetTrack}

@@ -14,11 +14,11 @@ export function ToolIdeasList() {
   const [filter, setFilter] = useState<Filter>('all')
 
   if (loading) {
-    return <div className="py-8 text-center text-sm" style={{ color: 'var(--text-dim)' }}>Loading tool ideas...</div>
+    return <div className="py-12 text-center text-[13px] text-slate-500">Loading tool ideas...</div>
   }
 
   if (!ideas.length && !undoData) {
-    return <div className="py-8 text-center text-sm" style={{ color: 'var(--text-dim)' }}>No tool ideas scored yet.</div>
+    return <div className="py-12 text-center text-[13px] text-slate-500">No tool ideas scored yet.</div>
   }
 
   const excludedFromApproved = new Set(['rejected', 'archived'])
@@ -78,17 +78,16 @@ function FilterBar({ filter, onFilter, counts }: {
   ]
 
   return (
-    <div className="flex gap-1">
+    <div className="flex gap-1.5">
       {filters.map(f => (
         <button
           key={f.key}
           onClick={() => onFilter(f.key)}
-          className="btn-research rounded px-2.5 py-1 text-xs font-medium"
-          style={{
-            background: filter === f.key ? 'var(--brand-muted)' : 'var(--surface-2)',
-            color: filter === f.key ? 'var(--brand)' : 'var(--text-muted)',
-            border: `1px solid ${filter === f.key ? 'var(--brand-border)' : 'var(--border)'}`,
-          }}
+          className={`rounded-md px-3 py-1 text-[12px] font-medium transition-colors duration-150 ${
+            filter === f.key
+              ? 'bg-cyan-500 text-white'
+              : 'border-[0.5px] border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+          }`}
         >
           {f.label} ({counts[f.key]})
         </button>

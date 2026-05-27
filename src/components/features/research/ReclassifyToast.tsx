@@ -26,17 +26,13 @@ export function ReclassifyToast({ trackName, onUndo, onDismiss }: ReclassifyToas
   }, [onDismiss])
 
   return (
-    <div
-      className="mb-3 flex items-center justify-between rounded-lg px-4 py-2.5"
-      style={{ background: 'var(--surface-2)', border: '1px solid var(--brand-border)' }}
-    >
-      <span className="text-xs" style={{ color: 'var(--text)' }}>
-        Post moved to {trackName}. <span style={{ color: 'var(--text-dim)' }}>({seconds}s)</span>
+    <div className="mb-3 flex items-center justify-between rounded-lg border-[0.5px] border-cyan-200 bg-cyan-50 px-4 py-2.5">
+      <span className="text-[13px] text-slate-700">
+        Post moved to {trackName}. <span className="text-slate-500">({seconds}s)</span>
       </span>
       <button
         onClick={onUndo}
-        className="rounded px-3 py-1 text-xs font-medium"
-        style={{ background: 'var(--brand-muted)', color: 'var(--brand)' }}
+        className="rounded-md bg-cyan-500 px-3 py-1 text-[12px] font-medium text-white transition-colors duration-150 hover:bg-cyan-600"
       >
         Undo
       </button>

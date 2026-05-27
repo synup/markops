@@ -9,13 +9,7 @@ export function ScoreNowButton() {
     <button
       onClick={requestScore}
       disabled={pending}
-      className="btn-research rounded-lg px-4 py-2 text-xs font-medium"
-      style={{
-        background: pending ? 'var(--surface-2)' : 'var(--brand)',
-        color: pending ? 'var(--text-muted)' : '#fff',
-        border: `1px solid ${pending ? 'var(--border)' : 'var(--brand)'}`,
-        cursor: pending ? 'not-allowed' : 'pointer',
-      }}
+      className="rounded-md bg-cyan-500 px-4 py-2 text-[13px] font-medium text-white transition-colors duration-150 hover:bg-cyan-600 disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed"
     >
       {pending ? 'Scoring...' : 'Score Now'}
     </button>

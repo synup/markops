@@ -194,7 +194,6 @@ export interface RedditToolAction {
   id: string
   post_id: string
   action: string
-  assigned_to: string | null
   deploy_url: string | null
   notes: string | null
   performed_by: string | null
